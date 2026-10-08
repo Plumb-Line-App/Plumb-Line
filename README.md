@@ -68,7 +68,7 @@ If you add new Tailwind classes, rebuild the CSS: `npm install && npm run build:
 
 ## Testing on iPhone 17 / Safari
 
-`.github/workflows/safari-qa.yml` (run it from the Actions tab) boots an iPhone 17 simulator on a macOS runner, screenshots every tab of the live site in real Mobile Safari in light and dark, drives the slip → Honest Script flow through `safaridriver`, and runs `tests/safari/run.js` in WebKit at 402×874. Results land on the `qa-results` branch. Locally: `npm i --no-save playwright && npx playwright install webkit && BASE=http://localhost:8000/ node tests/safari/run.js`.
+`.github/workflows/safari-qa.yml` (run it from the Actions tab) boots an iPhone 17 simulator on a macOS runner, screenshots every tab of the live site in real Mobile Safari in light and dark, and runs `tests/safari/run.js` (the full flow) and `tests/safari/regress.js` (one check per past bug) in WebKit at 402×874. Results land on the `qa-results` branch. Locally: `npm i --no-save playwright && npx playwright install webkit && BASE=http://localhost:8000/ node tests/safari/run.js`.
 
 ## How the insight is scored
 

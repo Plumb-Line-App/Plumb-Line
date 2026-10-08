@@ -39,7 +39,7 @@ jobs:
           echo "iPhone 17 · iOS $IOS · $UDID" | tee results/device.txt
           xcrun simctl boot "$UDID" || true
           xcrun simctl bootstatus "$UDID" -b
-          # A visible Simulator.app registers the devices:// handler safaridriver needs; then warm up Safari once.
+          # Open Simulator.app and warm up Safari once, so the first link doesn't time out.
           open "$(xcode-select -p)/Applications/Simulator.app" --args -CurrentDeviceUDID "$UDID"
           sleep 20
           xcrun simctl launch "$UDID" com.apple.mobilesafari || true
@@ -66,20 +66,6 @@ jobs:
             done
           done
           xcrun simctl ui "$UDID" appearance light
-
-      - name: Drive Mobile Safari with safaridriver
-        continue-on-error: true
-        run: |
-          sudo safaridriver --enable || true
-          # safaridriver finds the simulator through Simulator.app's devices:// URL handler; register it explicitly.
-          LSREG=/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister
-          "$LSREG" -f "$(xcode-select -p)/Applications/Simulator.app" || true
-          "$LSREG" -dump 2>/dev/null | grep -m3 -i "devices:" || echo "no devices:// handler listed"
-          sudo xcode-select -p
-          xcrun simctl spawn "$UDID" defaults write com.apple.mobilesafari WebDriverEnabled -bool YES || true
-          xcrun simctl spawn "$UDID" defaults write com.apple.WebDriver.plist RemoteAutomationEnabled -bool YES || true
-          python3 -m pip install --quiet --break-system-packages selenium || python3 -m pip install --quiet selenium
-          OUT=results/webdriver python3 tests/safari/webdriver_check.py 2>&1 | tee results/webdriver.txt
 
       - uses: actions/setup-node@v4
         with:
