@@ -1,33 +1,35 @@
-// The 4-Stage Scale and small shared helpers. Loaded first; everything hangs off window.VT.
+// The 4-Stage Scale, needs, and small shared helpers. Loaded first; everything hangs off window.VT.
 window.VT = window.VT || {};
 
+// Generic wording: the same path from duty to second nature applies to every virtue.
+// Each virtue adds its own concrete example (see virtues.js).
 VT.STAGES = [
   {
     id: 1,
     name: 'Heavy Kantian Fight',
     short: 'Heavy fight',
-    desc: 'Held the line on raw willpower, but left feeling depleted and deprived.',
+    desc: 'Held the line by sheer force, and it left me drained.',
     color: '#9aa8b8',
   },
   {
     id: 2,
     name: 'Softening Kantian Fight',
     short: 'Softening',
-    desc: 'Urge hit; I introduced a constructive delay or alternative. High effort, lower friction.',
+    desc: 'Felt the pull and redirected it — a pause, a delay, a better option. Still effortful.',
     color: '#6f9bb5',
   },
   {
     id: 3,
     name: 'Early Aristotelian Shift',
     short: 'Early shift',
-    desc: 'Natural space appeared between the mood and the urge. Easily chose another way to care for myself.',
+    desc: 'Space appeared on its own between the feeling and the pull. The better choice came easily.',
     color: '#7fae9a',
   },
   {
     id: 4,
     name: 'Aristotelian Harmony',
     short: 'Harmony',
-    desc: 'Food in its proper place as nourishment. The heavy mood didn’t trigger a default craving.',
+    desc: 'The pull barely showed up. The right thing was simply what I wanted.',
     color: '#4f8a72',
   },
 ];
@@ -41,45 +43,33 @@ VT.SLIP = { name: 'Slip', short: 'Slip', color: '#c8bcae' };
 VT.ACT = { name: 'Good act', short: 'Good act', color: '#b8842c' };
 VT.FIGHT_COLOR = '#3d7fb0'; // urges & slips in the crowding-out chart (validated pair with VT.ACT.color)
 
-// What an urge is usually really about. Good acts are tagged with the needs they meet.
+// What a pull is usually really about. Each virtue offers the needs that fit it,
+// and good acts are tagged with the needs they meet.
 VT.NEEDS = [
   { id: 'rest', name: 'Rest', hint: 'worn out' },
   { id: 'comfort', name: 'Comfort', hint: 'hurting or heavy' },
   { id: 'connection', name: 'Connection', hint: 'lonely or unseen' },
   { id: 'stimulation', name: 'Stimulation', hint: 'bored or restless' },
   { id: 'reward', name: 'Reward', hint: 'wanting a treat' },
+  { id: 'calm', name: 'Calm', hint: 'hurried or overloaded' },
+  { id: 'heard', name: 'To be heard', hint: 'ignored or disrespected' },
+  { id: 'clarity', name: 'Clarity', hint: 'unsure where to start' },
+  { id: 'courage', name: 'Courage', hint: 'afraid it won’t be good enough' },
 ];
 VT.needById = (id) => VT.NEEDS.find((n) => n.id === id) || null;
 
-VT.DEFAULT_ACTS = [
-  { id: 'workout', label: 'Worked out', needs: ['stimulation', 'reward'] },
-  { id: 'walk', label: 'Went for a walk', needs: ['rest', 'comfort', 'stimulation'] },
-  { id: 'meal', label: 'Cooked a real meal', needs: ['comfort', 'reward'] },
-  { id: 'load', label: 'Took something off her plate', needs: ['connection'] },
-  { id: 'kids', label: 'Played with the kids', needs: ['connection', 'stimulation'] },
-  { id: 'prayer', label: 'Prayed / read scripture', needs: ['comfort', 'rest'] },
-  { id: 'friend', label: 'Called a friend', needs: ['connection'] },
-  { id: 'quiet', label: 'Took 10 quiet minutes', needs: ['rest', 'comfort'] },
-  { id: 'bed', label: 'In bed on time', needs: ['rest'] },
-];
-
 VT.HONESTY_WINDOW_MS = 15 * 60 * 1000;
 
-// Spouse wording. Uses the saved name when there is one.
+// Names used in copy. Saved names win; otherwise neutral wording.
 VT.spouse = (pov = 'your') => {
-  const name = VT.store && VT.store.settings().spouseName;
+  const name = VT.store && VT.store.setting('spouseName');
   if (name) return name;
   return { my: 'my spouse', your: 'your spouse', them: 'them' }[pov] || 'your spouse';
 };
+// The saved kid name is a form of address ("buddy") for the repair script only; prose always says "the kids".
+VT.kids = () => 'the kids';
 
-VT.COMPASSION_LABELS = {
-  0: 'No notable slips',
-  1: 'Heavy guilt and shame',
-  2: 'Mostly self-critical',
-  3: 'Mixed',
-  4: 'Mostly understanding',
-  5: 'Gentle curiosity',
-};
+VT.LIFT_LABELS = { 1: 'Not at all', 2: 'A little', 3: 'Some', 4: 'A good bit', 5: 'A lot' };
 
 // Local-time date helpers (YYYY-MM-DD) so "today" matches the user's wall clock, not UTC.
 VT.dates = {
@@ -115,5 +105,8 @@ VT.dates = {
     return VT.dates.parse(key).toLocaleDateString(undefined, opts);
   },
 };
+
+VT.plural = (n, word, many = word + 's') => `${n} ${n === 1 ? word : many}`;
+VT.round1 = (n) => Math.round(n * 10) / 10;
 
 VT.uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);

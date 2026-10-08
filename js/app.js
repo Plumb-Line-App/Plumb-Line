@@ -1,49 +1,16 @@
-// UI controller: wires forms to the store and re-renders the dashboard after every change.
+// App controller: tabs, the moment banner, repair dialog, script, Journey, Weekly, settings and data.
 (function () {
-  const $ = (id) => document.getElementById(id);
-  const RECENT_LIMIT = 8;
+  const { $, toast } = VT.ui;
+  const RECENT_LIMIT = 10;
   const CLOSED_BANNER_MS = 24 * 60 * 60 * 1000; // a closed window stays visible for a day unless dismissed
   const BASE_TITLE = document.title;
-  const SAVE_FAILED = 'This didn’t save — browser storage may be full or blocked. What you wrote still matters; try Export to keep a copy.';
 
-  let celebration = null; // transient: the entry we're celebrating, until closed
+  let moment = null; // transient banner: { state: 'celebrate' | 'grace', entry }
   let ticker = null;
   let disclosingId = null;
   let scriptVariant = 0;
-
-  // ---------- Toast ----------
-  let toastTimer;
-  function toast(msg) {
-    const el = $('toast');
-    el.textContent = msg;
-    el.classList.add('show');
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => el.classList.remove('show'), 3200);
-  }
-
-  // ---------- Stage options ----------
-  function renderStageOptions() {
-    const wrap = $('stage-options');
-    wrap.innerHTML = '';
-    VT.STAGES.forEach((s) => {
-      const label = document.createElement('label');
-      label.className = 'choice';
-      label.innerHTML = `
-        <input type="radio" name="stage" value="${s.id}" class="sr-only" />
-        <span class="choice-body">
-          <span class="flex items-center gap-2">
-            <span class="stage-dot" style="background:${s.color}"></span>
-            <span class="text-xs text-stone-500">Stage ${s.id}</span>
-          </span>
-          <span class="block font-medium text-stone-800 mt-1"></span>
-          <span class="hidden sm:block text-xs text-stone-500 mt-1 leading-snug"></span>
-        </span>`;
-      const [name, desc] = label.querySelectorAll('.choice-body > span:not(.flex)');
-      name.textContent = s.name;
-      desc.textContent = s.desc;
-      wrap.appendChild(label);
-    });
-  }
+  let journeyVirtue = null; // null = all
+  let energyTouched = false; // once the person picks an energy answer, stop pre-filling it
 
   // ---------- Tabs ----------
   const TABS = ['today', 'honesty', 'journey', 'weekly', 'why'];
@@ -59,6 +26,7 @@
       else a.removeAttribute('aria-current');
     });
     if (scroll) window.scrollTo(0, 0);
+    if (name === 'weekly') prefillEnergy();
     // Charts were laid out while hidden; size them now that they're visible.
     if (name === 'journey' || name === 'honesty') requestAnimationFrame(() => VT.charts.resize());
   }
@@ -74,116 +42,36 @@
     }
   }
 
-  function renderSnapshot(s, h, due) {
-    $('snap-phase').textContent = s.phase;
-    $('snap-marker').style.left = `${s.score == null ? 0 : Math.max(2, Math.min(98, s.score))}%`;
-    $('snap-marker').style.opacity = s.score == null ? '0.35' : '1';
-    const bits = [`${s.count30} log${s.count30 === 1 ? '' : 's'} in 30 days`];
-    if (h.slips30) bits.push(`${h.shared30} of ${h.slips30} slips shared`);
-    if (due == null) bits.push('First weekly check-in whenever you\u2019re ready');
-    else if (due <= 0) bits.push('Weekly check-in ready');
-    $('snap-meta').textContent = bits.join(' \u00b7 ');
-  }
-
-  // A quiet dot on the Honesty tab while a window is open or a slip is still unshared.
-  function renderBadge(h) {
-    const now = Date.now();
-    const pending = VT.store.logs().some((l) => l.kind === 'slip' && !l.disclosed && l.windowEndsAt && now < l.windowEndsAt);
-    $('honesty-badge').classList.toggle('hidden', !(pending || h.unshared > 0));
-  }
-
-  // ---------- Spouse wording ----------
-  function renderSpouse() {
-    document.querySelectorAll('[data-spouse]').forEach((el) => (el.textContent = VT.spouse(el.dataset.spouse)));
-  }
-
-  // ---------- Dashboard render ----------
+  // ---------- Render ----------
   function render() {
     const logs = VT.store.logs();
     const weeklies = VT.store.weeklies();
-    const s = VT.insights.summary(logs, weeklies);
+    const s = VT.store.settings();
+    if (journeyVirtue && !s.activeVirtues.includes(journeyVirtue)) journeyVirtue = null;
 
-    $('insight-phase').textContent = s.phase;
-    $('insight-message').textContent = s.message;
-    $('phase-marker').style.left = `${s.score == null ? 0 : Math.max(2, Math.min(98, s.score))}%`;
-    $('phase-marker').style.opacity = s.score == null ? '0.35' : '1';
-
-    $('stat-count').textContent = s.count30;
-    $('stat-avg').textContent = s.avgStage == null ? '—' : (Math.round(s.avgStage * 10) / 10).toFixed(1);
-    $('stat-friction').textContent = s.latestFriction == null ? '—' : s.latestFriction;
-
+    const overall = VT.insights.summary(logs, weeklies, null, s.activeVirtues);
     const h = VT.insights.honesty(logs);
+    const due = VT.insights.checkInDue(weeklies);
+
+    VT.today.render({ logs, weeklies, settings: s, overall, honesty: h, due });
+    renderJourney(logs, weeklies, s, overall);
+    renderHonesty(h);
+    renderDue(due);
+    renderSettings(s);
+    $('honesty-badge').classList.toggle('hidden', !(h.pending || h.unshared > 0));
+    renderMoment(logs);
+  }
+
+  function renderHonesty(h) {
     $('honesty-message').textContent = h.message;
     $('stat-slips').textContent = h.slips30;
     $('stat-shared').textContent = h.slips30 ? `${h.shared30}/${h.slips30}` : '0';
     $('stat-streak').textContent = h.streak;
     $('fear-summary').textContent = h.fear;
-
-    VT.charts.update(weeklies, s.counts);
     VT.charts.updateFear(h.pairs);
-    renderRecent(logs);
-    renderDue(weeklies);
-    renderSnapshot(s, h, VT.insights.checkInDue(weeklies));
-    renderBadge(h);
-    renderSpouse();
-    renderMoment();
   }
 
-  function renderRecent(logs) {
-    const list = $('recent-list');
-    list.innerHTML = '';
-    const recent = [...logs].reverse().slice(0, RECENT_LIMIT);
-    $('recent-empty').classList.toggle('hidden', recent.length > 0);
-    $('recent-count').textContent = logs.length ? `${logs.length} total` : '';
-
-    recent.forEach((l) => {
-      const isSlip = l.kind === 'slip';
-      const meta = isSlip ? VT.SLIP : VT.stageById(l.stage);
-      const li = document.createElement('li');
-      li.className = 'py-3 flex gap-3 items-start group';
-      li.innerHTML = `
-        <span class="stage-dot mt-1.5" style="background:${meta.color}"></span>
-        <div class="min-w-0 flex-1">
-          <div class="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-            <span class="text-sm font-medium text-stone-800" data-f="stage"></span>
-            <span class="text-xs text-stone-500" data-f="date"></span>
-            <span data-f="chip"></span>
-          </div>
-          <p class="text-sm text-stone-600 mt-0.5 break-words" data-f="note"></p>
-          <p class="text-xs text-stone-500 mt-1" data-f="fear"></p>
-          <button type="button" class="hidden mt-2 text-sm text-sage-700 font-medium hover:underline" data-told="${l.id}"></button>
-        </div>
-        <button type="button" class="text-xs text-stone-400 hover:text-stone-700 px-2 py-1 rounded sm:opacity-0 sm:group-hover:opacity-100 focus:opacity-100" data-del="${l.id}" aria-label="Delete this entry">Remove</button>`;
-      li.querySelector('[data-f="stage"]').textContent = meta.name;
-      li.querySelector('[data-f="date"]').textContent = VT.dates.pretty(l.date, { weekday: 'short', month: 'short', day: 'numeric' });
-
-      const chip = li.querySelector('[data-f="chip"]');
-      if (isSlip) {
-        chip.className = `chip ${l.disclosed ? 'chip-win' : 'chip-open'}`;
-        chip.textContent = l.disclosed ? 'Double victory' : 'Not yet shared';
-      } else chip.remove();
-
-      const note = li.querySelector('[data-f="note"]');
-      if (l.note) note.textContent = l.note;
-      else note.remove();
-
-      const fear = li.querySelector('[data-f="fear"]');
-      if (isSlip && l.predicted != null && l.actual != null) fear.textContent = `Braced for ${l.predicted}/10 → it was ${l.actual}/10`;
-      else if (isSlip && l.predicted != null && !l.disclosed) fear.textContent = `Bracing for ${l.predicted}/10`;
-      else fear.remove();
-
-      const told = li.querySelector('[data-told]');
-      if (isSlip && !l.disclosed) {
-        told.textContent = `I told ${VT.spouse('my')}`;
-        told.classList.remove('hidden');
-      } else told.remove();
-
-      list.appendChild(li);
-    });
-  }
-
-  function renderDue(weeklies) {
-    const due = VT.insights.checkInDue(weeklies);
+  function renderDue(due) {
     const el = $('weekly-due');
     if (due == null) el.textContent = 'First check-in';
     else if (due > 1) el.textContent = `Next one in ${due} days`;
@@ -191,12 +79,212 @@
     else el.textContent = 'Ready when you are';
   }
 
-  // ---------- Moment banner (honesty window / celebration) ----------
-  // The banner follows the most recent undisclosed, undismissed slip that still has a window.
-  function currentWindowEntry(now = Date.now()) {
+  // ---------- Journey ----------
+  function renderJourney(logs, weeklies, s, overall) {
+    const filter = $('journey-filter');
+    filter.innerHTML = '';
+    filter.appendChild(VT.ui.pill('All virtues', { jv: '' }, { pressed: !journeyVirtue }));
+    s.activeVirtues.forEach((id) => {
+      const v = VT.virtueById(id);
+      const b = VT.ui.pill(v.name, { jv: id }, { pressed: journeyVirtue === id });
+      const dot = document.createElement('span');
+      dot.className = 'vdot';
+      dot.style.background = v.color;
+      b.prepend(dot);
+      filter.appendChild(b);
+    });
+
+    const sum = journeyVirtue ? VT.insights.summary(logs, weeklies, journeyVirtue, s.activeVirtues) : overall;
+    const v = journeyVirtue ? VT.virtueById(journeyVirtue) : null;
+    $('insight-eyebrow').textContent = v ? `${v.name} · ${v.area}` : 'All virtues';
+    $('insight-phase').textContent = sum.phase;
+    $('insight-message').textContent = sum.message;
+    $('phase-marker').style.left = `${VT.ui.clampPct(sum.score)}%`;
+    $('phase-marker').style.opacity = sum.score == null ? '0.35' : '1';
+
+    const paths = $('insight-paths');
+    paths.innerHTML = '';
+    paths.classList.toggle('hidden', !!journeyVirtue);
+    sum.perVirtue.forEach((p) => {
+      const vv = VT.virtueById(p.id);
+      const li = document.createElement('li');
+      li.className = 'flex items-center gap-2';
+      li.innerHTML = '<span class="vdot"></span><span class="font-medium text-stone-800" data-f="n"></span><span class="text-stone-500" data-f="p"></span>';
+      li.querySelector('.vdot').style.background = vv.color;
+      li.querySelector('[data-f="n"]').textContent = vv.name;
+      li.querySelector('[data-f="p"]').textContent = `· ${p.phase}`;
+      paths.appendChild(li);
+    });
+
+    $('stat-acts').textContent = sum.acts30;
+    $('stat-urges').textContent = sum.urges30;
+    $('stat-avg').textContent = sum.avgStage == null ? '—' : sum.avgStage.toFixed(1);
+    $('stat-friction').textContent = sum.latestFriction == null ? '—' : sum.latestFriction;
+
+    // "All virtues" means the active ones; a resting virtue's history stays out of the totals.
+    const scoped = journeyVirtue ? logs : VT.insights.activeScope(logs, s.activeVirtues);
+    const a = VT.insights.acts(scoped, s, journeyVirtue);
+    VT.charts.updateCrowd(a.weeks);
+    VT.charts.updateFriction(weeklies, journeyVirtue ? [journeyVirtue] : s.activeVirtues);
+    VT.charts.updateStages(sum.counts);
+    renderHelps(a);
+    renderRecent(logs.filter((l) => VT.inVirtue(l, journeyVirtue)), logs);
+  }
+
+  function bars(list, rows, color) {
+    list.innerHTML = '';
+    rows.forEach((r) => {
+      const li = document.createElement('li');
+      li.className = 'hbar-row';
+      li.innerHTML = '<div class="hbar-head"><span data-f="l"></span><span data-f="v"></span></div><div class="hbar"><i></i></div>';
+      li.querySelector('[data-f="l"]').textContent = r.label;
+      li.querySelector('[data-f="v"]').textContent = r.value;
+      const fill = li.querySelector('i');
+      fill.style.width = `${Math.max(4, r.pct)}%`;
+      fill.style.background = color;
+      list.appendChild(li);
+    });
+  }
+
+  function renderHelps(a) {
+    bars(
+      $('lift-bars'),
+      a.liftByAct.slice(0, 8).map((x) => ({ label: x.label, value: `${VT.round1(x.avg)} / 5 · ${x.n}×`, pct: (x.avg / 5) * 100 })),
+      VT.ACT.color
+    );
+    $('helps-summary').textContent = a.helps;
+    $('needs-wrap').classList.toggle('hidden', !a.needs.length);
+    const max = Math.max(1, ...a.needs.map((n) => n.count));
+    bars(
+      $('need-bars'),
+      a.needs.map((n) => ({ label: `${n.name} · ${n.hint}`, value: String(n.count), pct: (n.count / max) * 100 })),
+      VT.FIGHT_COLOR
+    );
+    $('needs-summary').textContent = a.needsMsg;
+  }
+
+  function renderRecent(logs, allLogs) {
+    const list = $('recent-list');
+    list.innerHTML = '';
+    const recent = [...logs].reverse().slice(0, RECENT_LIMIT);
+    $('recent-empty').classList.toggle('hidden', recent.length > 0);
+    $('recent-count').textContent = logs.length ? `${logs.length} total` : '';
+
+    recent.forEach((l) => {
+      const li = document.createElement('li');
+      li.className = 'py-3 flex gap-3 items-start group';
+      li.innerHTML = `
+        <span class="stage-dot mt-1.5"></span>
+        <div class="min-w-0 flex-1">
+          <div class="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+            <span class="text-sm font-medium text-stone-800" data-f="title"></span>
+            <span class="text-xs text-stone-500" data-f="date"></span>
+            <span data-f="chip"></span>
+          </div>
+          <p class="text-xs text-stone-500 mt-0.5" data-f="meta"></p>
+          <p class="text-sm text-stone-600 mt-0.5 break-words" data-f="note"></p>
+          <button type="button" class="hidden mt-2 text-sm text-sage-700 font-medium hover:underline" data-told></button>
+        </div>
+        <button type="button" class="text-xs text-stone-400 hover:text-stone-700 px-2 py-1 rounded sm:opacity-0 sm:group-hover:opacity-100 focus:opacity-100" data-del aria-label="Delete this entry">Remove</button>`;
+      // Ids can come from an imported file, so set them as properties rather than interpolating into HTML.
+      li.querySelector('[data-told]').dataset.told = l.id;
+      li.querySelector('[data-del]').dataset.del = l.id;
+      const f = (k) => li.querySelector(`[data-f="${k}"]`);
+      const meta = [];
+      const chip = f('chip');
+      chip.className = 'chip';
+
+      if (l.kind === 'act') {
+        li.querySelector('.stage-dot').style.background = VT.ACT.color;
+        f('title').textContent = l.label;
+        if (l.status === 'planned') {
+          chip.classList.add('chip-open');
+          chip.textContent = 'Up next';
+        } else {
+          chip.classList.add('chip-act');
+          chip.textContent = l.lift != null ? `Helped ${l.lift}/5` : 'Good act';
+        }
+        meta.push(l.virtues.map((id) => VT.virtueById(id).name).join(', '));
+        if (l.expectLift != null && l.lift != null) meta.push(`Expected ${l.expectLift}/5 → it was ${l.lift}/5`);
+        if (l.linkedUrgeId) meta.push('Chosen instead of the pull');
+        if (l.planId) meta.push('Kept an if-then plan');
+      } else {
+        const v = VT.virtueById(l.virtue);
+        meta.push(v.name);
+        if (l.need) meta.push(`Needed: ${VT.needById(l.need).name.toLowerCase()}`);
+        if (l.kind === 'urge') {
+          const st = VT.stageById(l.stage);
+          li.querySelector('.stage-dot').style.background = st.color;
+          f('title').textContent = st.name;
+          const chosen = allLogs.find((x) => x.linkedUrgeId === l.id);
+          if (chosen) meta.push(`→ chose: ${chosen.label}`);
+          chip.remove();
+        } else {
+          li.querySelector('.stage-dot').style.background = VT.SLIP.color;
+          f('title').textContent = v.slipLabel;
+          if (v.repairs.length) {
+            chip.classList.add(l.disclosed ? 'chip-win' : 'chip-open');
+            chip.textContent = l.disclosed ? 'Double victory' : 'Not yet made right';
+            const told = li.querySelector('[data-told]');
+            if (!l.disclosed) {
+              told.textContent = VT.repairAction(v);
+              told.classList.remove('hidden');
+            } else {
+              // Patience has two repairs (kids and spouse); let the second one be recorded later too.
+              const missing = v.repairs.find((t) => !l.repairs || l.repairs[t] == null);
+              if (missing) {
+                told.removeAttribute('data-told');
+                told.dataset.also = missing;
+                told.dataset.id = l.id;
+                told.textContent = `Also: ${VT.REPAIRS[missing].action()}`;
+                told.classList.remove('hidden');
+              }
+            }
+          } else chip.remove();
+          if (l.predicted != null && l.actual != null) meta.push(`Braced for ${l.predicted}/10 → it was ${l.actual}/10`);
+          else if (l.predicted != null && !l.disclosed) meta.push(`Bracing for ${l.predicted}/10`);
+        }
+      }
+
+      f('date').textContent = VT.dates.pretty(l.date, { weekday: 'short', month: 'short', day: 'numeric' });
+      const metaText = meta.filter(Boolean).join(' · ');
+      if (metaText) f('meta').textContent = metaText;
+      else f('meta').remove();
+      if (l.note) f('note').textContent = l.note;
+      else f('note').remove();
+      list.appendChild(li);
+    });
+  }
+
+  function onRecentClick(e) {
+    const told = e.target.closest('[data-told]');
+    if (told) return openDisclose(told.dataset.told);
+    const also = e.target.closest('[data-also]');
+    if (also) {
+      const entry = VT.store.getLog(also.dataset.id);
+      if (!entry) return;
+      const saved = VT.store.updateLog(entry.id, { repairs: { ...entry.repairs, [also.dataset.also]: Date.now() } });
+      if (!saved) return toast(VT.ui.SAVE_FAILED);
+      render();
+      return toast(also.dataset.also === 'kids' ? 'Repaired with the kids too. That\u2019s what they\u2019ll remember.' : `Told ${VT.spouse('your')} too. Nothing hidden.`);
+    }
+    const btn = e.target.closest('[data-del]');
+    if (!btn) return;
+    if (!confirm('Remove this reflection?')) return;
+    if (!VT.store.deleteLog(btn.dataset.del)) return toast(VT.ui.SAVE_FAILED);
+    // A good act chosen instead of a deleted pull still happened; just drop the link to the pull.
+    VT.store.logs().filter((l) => l.linkedUrgeId === btn.dataset.del).forEach((l) => VT.store.updateLog(l.id, { linkedUrgeId: null }));
+    VT.today.forget(btn.dataset.del);
+    if (moment && moment.entry.id === btn.dataset.del) moment = null;
+    render();
+    toast('Entry removed');
+  }
+
+  // ---------- Moment banner ----------
+  // The banner follows the most recent un-repaired, undismissed slip that still has a window.
+  function currentWindowEntry(logs, now = Date.now()) {
     return (
-      VT.store
-        .logs()
+      logs
         .filter((l) => l.kind === 'slip' && !l.disclosed && !l.windowDismissed && l.windowEndsAt && now < l.windowEndsAt + CLOSED_BANNER_MS)
         .sort((a, b) => b.createdAt - a.createdAt)[0] || null
     );
@@ -207,17 +295,17 @@
     return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`;
   };
 
-  function renderMoment() {
+  function renderMoment(logs) {
     const el = $('moment');
     const now = Date.now();
     let state = null;
     let entry = null;
 
-    if (celebration) {
-      state = 'celebrate';
-      entry = celebration;
+    if (moment) {
+      state = moment.state;
+      entry = moment.entry;
     } else {
-      entry = currentWindowEntry(now);
+      entry = currentWindowEntry(logs, now);
       if (entry) state = now < entry.windowEndsAt ? 'running' : 'closed';
     }
 
@@ -227,7 +315,9 @@
       return;
     }
 
+    const v = VT.virtueById(entry.virtue);
     const copy = VT.insights.moment(state, entry);
+    const open = state === 'running' || state === 'closed';
     el.dataset.state = state;
     el.dataset.entry = entry.id;
     el.classList.remove('hidden');
@@ -236,17 +326,17 @@
     $('moment-body').textContent = copy.body;
     $('moment-extra').textContent = copy.extra;
     $('moment-extra').classList.toggle('hidden', !copy.extra);
+    VT.ui.verse($('moment-verse'), copy.verse);
 
-    const running = state === 'running';
-    $('moment-timer').classList.toggle('hidden', !running);
-    $('moment-bar-wrap').classList.toggle('hidden', !running);
-    $('moment-told').classList.toggle('hidden', state === 'celebrate');
-    $('moment-told').textContent = `I told ${VT.spouse('my')}`;
-    $('moment-script').classList.toggle('hidden', state === 'celebrate');
-    $('moment-dismiss').textContent = state === 'celebrate' ? 'Close' : 'Not right now';
-    $('moment-dismiss').classList.toggle('hidden', running);
+    $('moment-timer').classList.toggle('hidden', state !== 'running');
+    $('moment-bar-wrap').classList.toggle('hidden', state !== 'running');
+    $('moment-told').classList.toggle('hidden', !open);
+    if (open) $('moment-told').textContent = VT.repairAction(v);
+    $('moment-script').classList.toggle('hidden', !open);
+    $('moment-dismiss').textContent = open ? 'Not right now' : 'Close';
+    $('moment-dismiss').classList.toggle('hidden', state === 'running');
 
-    if (running) {
+    if (state === 'running') {
       tick();
       startTicker();
     } else {
@@ -258,15 +348,15 @@
     const el = $('moment');
     if (el.dataset.state !== 'running') return stopTicker();
     const entry = VT.store.getLog(el.dataset.entry);
-    if (!entry) return renderMoment();
+    if (!entry || entry.disclosed) return render();
     const left = entry.windowEndsAt - Date.now();
     if (left <= 0) {
       document.title = BASE_TITLE;
-      return render(); // flips the banner to the "door didn't close" state and refreshes honesty stats
+      return render(); // flips the banner to the closed state and refreshes honesty stats
     }
     $('moment-timer').textContent = fmt(left);
     $('moment-bar').style.width = `${(left / VT.HONESTY_WINDOW_MS) * 100}%`;
-    document.title = `${fmt(left)} · Honesty window`;
+    document.title = `${fmt(left)} · ${VT.kidsFirst(VT.virtueById(entry.virtue)) ? 'Repair' : 'Honesty'} window`;
   }
 
   function startTicker() {
@@ -279,37 +369,55 @@
   }
 
   function onMomentDismiss() {
-    const el = $('moment');
-    if (el.dataset.state === 'celebrate') {
-      celebration = null;
+    if (moment) {
+      moment = null;
     } else {
-      VT.store.updateLog(el.dataset.entry, { windowDismissed: true });
-      toast('Okay. The option to share stays open in Recent reflections.');
+      if (!VT.store.updateLog($('moment').dataset.entry, { windowDismissed: true })) return toast(VT.ui.SAVE_FAILED);
+      toast('Okay. The option to make it right stays open in Recent reflections.');
     }
-    renderMoment();
+    render();
   }
 
-  // ---------- Disclosure dialog ----------
+  function onMomentScript() {
+    // Open the script ready for whoever this slip is about.
+    const entry = VT.store.getLog($('moment').dataset.entry);
+    if (entry) setScriptTo(VT.kidsFirst(VT.virtueById(entry.virtue)) ? 'kids' : 'spouse');
+  }
+
+  // ---------- Repair dialog ----------
   function openDisclose(id) {
     const entry = VT.store.getLog(id);
     if (!entry) return;
+    const v = VT.virtueById(entry.virtue);
+    if (!v.repairs.length) return;
     disclosingId = id;
-    const fixed = entry.predicted != null;
+
+    $('dlg-title').textContent = VT.kidsFirst(v) ? 'You made it right.' : 'You told the truth.';
+    const who = $('dlg-who');
+    who.querySelectorAll('label').forEach((x) => x.remove());
+    who.classList.toggle('hidden', v.repairs.length < 2);
+    $('dlg-who-error').classList.add('hidden');
+    v.repairs.forEach((t, i) => {
+      const label = document.createElement('label');
+      label.className = 'choice';
+      label.innerHTML = `<input type="checkbox" name="dlg-repair" value="${t}" class="sr-only" ${i === 0 ? 'checked' : ''} />
+        <span class="choice-body flex items-center gap-3"><span class="checkmark" aria-hidden="true"></span><span class="font-medium text-stone-800" data-f="l"></span></span>`;
+      label.querySelector('[data-f="l"]').textContent = VT.REPAIRS[t].action();
+      who.appendChild(label);
+    });
+
     // A prediction made before the conversation is kept as-is so hindsight can't rewrite it.
+    const fixed = entry.predicted != null;
     $('dlg-predicted-fixed').classList.toggle('hidden', !fixed);
     $('dlg-predicted-row').classList.toggle('hidden', fixed);
-    if (fixed) $('dlg-predicted-fixed').textContent = `Before you told ${VT.spouse('them')}, you braced for ${entry.predicted}/10.`;
-    setSlider('dlg-predicted', 5);
-    setSlider('dlg-actual', 5);
-    const dlg = $('disclose-dialog');
-    if (typeof dlg.showModal === 'function') dlg.showModal();
-    else dlg.setAttribute('open', '');
+    if (fixed) $('dlg-predicted-fixed').textContent = `Before, you braced for ${entry.predicted}/10.`;
+    VT.ui.setSlider('dlg-predicted', 5);
+    VT.ui.setSlider('dlg-actual', 5);
+    VT.ui.openDialog($('disclose-dialog'));
   }
 
   function closeDisclose() {
-    const dlg = $('disclose-dialog');
-    if (typeof dlg.close === 'function') dlg.close();
-    else dlg.removeAttribute('open');
+    VT.ui.closeDialog($('disclose-dialog'));
     disclosingId = null;
   }
 
@@ -317,111 +425,82 @@
     e.preventDefault();
     const entry = VT.store.getLog(disclosingId);
     if (!entry) return closeDisclose();
+    const v = VT.virtueById(entry.virtue);
+    const chosen = v.repairs.length > 1 ? [...document.querySelectorAll('input[name="dlg-repair"]:checked')].map((x) => x.value) : [v.repairs[0]];
+    if (!chosen.length) return $('dlg-who-error').classList.remove('hidden');
+    const now = Date.now();
+    const repairs = { ...(entry.repairs || {}) };
+    chosen.forEach((t) => {
+      if (repairs[t] == null) repairs[t] = now;
+    });
     const saved = VT.store.updateLog(entry.id, {
-      disclosed: true,
-      disclosedAt: Date.now(),
+      repairs,
+      disclosedAt: entry.disclosedAt || now,
       predicted: entry.predicted != null ? entry.predicted : $('dlg-predicted').value,
       actual: $('dlg-actual').value,
     });
     closeDisclose();
-    if (!saved) return toast(SAVE_FAILED);
+    if (!saved) return toast(VT.ui.SAVE_FAILED);
     celebrate(saved);
   }
 
   function celebrate(entry) {
-    celebration = entry;
+    moment = { state: 'celebrate', entry };
     render();
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
-  // ---------- Daily log ----------
-  function currentKind() {
-    return document.querySelector('input[name="kind"]:checked').value;
+  function grace(entry) {
+    moment = { state: 'grace', entry };
+    render();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
-  function syncLogForm() {
-    const slip = currentKind() === 'slip';
-    const disclosed = $('slip-disclosed').checked;
-    $('urge-fields').classList.toggle('hidden', slip);
-    $('slip-fields').classList.toggle('hidden', !slip);
-    $('slip-actual-row').classList.toggle('hidden', !disclosed);
-    $('slip-window-note').classList.toggle('hidden', disclosed);
-    $('slip-predicted-label').innerHTML = disclosed
-      ? 'Before you told <span data-spouse="them"></span>, how hard did you expect it to go?'
-      : 'Before you tell <span data-spouse="them"></span>: how hard do you expect it to go?';
-    $('log-note').placeholder = slip
-      ? 'What was going on? e.g. Rough afternoon, ate standing at the counter. Not proud of it, but writing it down.'
-      : 'e.g. Felt down after work, paused for 10 minutes instead of opening the pantry.';
-    renderSpouse();
+  // ---------- Repair script ----------
+  const scriptTo = () => document.querySelector('input[name="script-to"]:checked').value;
+
+  function setScriptTo(to) {
+    document.querySelector(`input[name="script-to"][value="${to}"]`).checked = true;
+    scriptVariant = 0;
+    syncScriptForm();
   }
 
-  function resetLogForm() {
-    $('log-form').reset();
-    $('log-date').value = VT.dates.today();
-    $('stage-error').classList.add('hidden');
-    $('stage-desc').textContent = 'Tap the stage that fits best.';
-    setSlider('slip-predicted', 5);
-    setSlider('slip-actual', 5);
-    syncLogForm();
-  }
+  // Rebuild the fields that depend on who the message is for.
+  function syncScriptForm() {
+    const to = scriptTo();
+    const s = VT.store.settings();
+    const kids = to === 'kids';
+    $('script-name-label').innerHTML = kids
+      ? 'What you call them <span class="font-normal text-stone-500">(optional)</span>'
+      : 'Their name <span class="font-normal text-stone-500">(optional, saved on this device)</span>';
+    $('script-name').placeholder = kids ? 'e.g. buddy' : 'e.g. Sam';
+    $('script-name').value = kids ? s.kidName : s.spouseName;
+    $('script-feeling-wrap').classList.toggle('hidden', kids);
+    $('script-need-wrap').classList.toggle('hidden', kids);
+    $('script-kids-tip').classList.toggle('hidden', !kids);
 
-  function onLogSubmit(e) {
-    e.preventDefault();
-    const date = $('log-date').value || VT.dates.today();
-    const note = $('log-note').value;
-
-    if (currentKind() === 'slip') {
-      const disclosed = $('slip-disclosed').checked;
-      const saved = VT.store.addLog({
-        date,
-        kind: 'slip',
-        note,
-        disclosed,
-        predicted: $('slip-predicted').value,
-        actual: $('slip-actual').value,
+    const sel = $('script-what');
+    sel.innerHTML = '';
+    const opts = VT.script.WHAT[to];
+    if (kids) opts.forEach((o) => sel.appendChild(new Option(o.label, o.id)));
+    else {
+      // Group by virtue so food and anger options read clearly.
+      [['temperance', 'With food'], ['patience', 'With my temper'], [null, '']].forEach(([vid, title]) => {
+        const group = opts.filter((o) => o.virtue === vid);
+        if (!group.length) return;
+        const parent = title ? document.createElement('optgroup') : sel;
+        if (title) parent.label = title;
+        group.forEach((o) => parent.appendChild(new Option(o.label, o.id)));
+        if (title) sel.appendChild(parent);
       });
-      if (!saved) return toast(SAVE_FAILED);
-      resetLogForm();
-      if (disclosed) {
-        celebrate(saved);
-      } else {
-        celebration = null;
-        render();
-        toast('Logged. You’re not in trouble, and you’re not alone.');
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-      }
-      return;
     }
-
-    const picked = document.querySelector('input[name="stage"]:checked');
-    if (!picked) {
-      $('stage-error').classList.remove('hidden');
-      document.querySelector('input[name="stage"]').focus();
-      return;
-    }
-    const saved = VT.store.addLog({ date, kind: 'urge', stage: picked.value, note });
-    if (!saved) return toast(SAVE_FAILED);
-    resetLogForm();
-    render();
-    toast(`Logged · ${VT.stageById(saved.stage).name}`);
+    renderScript();
   }
 
-  function onRecentClick(e) {
-    const told = e.target.closest('[data-told]');
-    if (told) return openDisclose(told.dataset.told);
-    const btn = e.target.closest('[data-del]');
-    if (!btn) return;
-    if (!confirm('Remove this reflection?')) return;
-    VT.store.deleteLog(btn.dataset.del);
-    if (celebration && celebration.id === btn.dataset.del) celebration = null;
-    render();
-    toast('Entry removed');
-  }
-
-  // ---------- Disclosure script ----------
   function scriptInputs() {
     return {
-      name: $('spouse-name').value,
+      to: scriptTo(),
+      name: $('script-name').value,
       what: $('script-what').value,
       whatCustom: $('script-what-custom').value,
       feeling: $('script-feeling').value,
@@ -443,7 +522,7 @@
       $('script-output').select();
       document.execCommand('copy');
     }
-    toast('Copied. Send it before the doubt talks you out of it.');
+    toast(scriptTo() === 'kids' ? 'Copied. Say it at their eye level.' : 'Copied. Send it before the doubt talks you out of it.');
   }
 
   async function shareScript() {
@@ -454,23 +533,98 @@
     }
   }
 
-  let nameTimer;
-  function onSpouseName() {
-    clearTimeout(nameTimer);
-    nameTimer = setTimeout(() => {
-      VT.store.setSpouseName($('spouse-name').value);
-      renderSpouse();
+  // One timer per field, so typing in one name doesn't cancel a pending save of the other.
+  const nameTimers = {};
+  function saveNameSoon(key, value) {
+    clearTimeout(nameTimers[key]);
+    nameTimers[key] = setTimeout(() => {
+      VT.store.updateSettings({ [key]: value });
       render();
     }, 300);
-    renderScript();
+  }
+
+  // ---------- Settings ----------
+  function renderSettings(s) {
+    const wrap = $('virtue-toggles');
+    wrap.innerHTML = '';
+    VT.VIRTUES.forEach((v) => wrap.appendChild(VT.ui.pill(`${v.name} · ${v.area}`, { toggleVirtue: v.id }, { pressed: s.activeVirtues.includes(v.id) })));
+    // Don't overwrite a field while it's being typed in.
+    if (document.activeElement !== $('set-spouse')) $('set-spouse').value = s.spouseName;
+    if (document.activeElement !== $('set-kids')) $('set-kids').value = s.kidName;
+    // The repair script has its own name field; keep it in step with names saved elsewhere.
+    const scriptName = scriptTo() === 'kids' ? s.kidName : s.spouseName;
+    if (document.activeElement !== $('script-name') && $('script-name').value.trim() !== scriptName) {
+      $('script-name').value = scriptName;
+      renderScript();
+    }
+  }
+
+  function onVirtueToggle(e) {
+    const b = e.target.closest('[data-toggle-virtue]');
+    if (!b) return;
+    const id = b.dataset.toggleVirtue;
+    const active = VT.store.settings().activeVirtues;
+    const resting = active.includes(id);
+    const next = resting ? active.filter((x) => x !== id) : VT.VIRTUE_IDS.filter((x) => x === id || active.includes(x));
+    if (!next.length) return toast('Keep at least one virtue active.');
+    const before = VT.store.setting('lastVirtue');
+    if (!VT.store.updateSettings({ activeVirtues: next })) return toast(VT.ui.SAVE_FAILED);
+    const after = VT.store.settings();
+    // Keep in-progress forms: only rebuild the friction sliders, and only reset the log form if its virtue changed.
+    buildFrictionSliders(after.activeVirtues);
+    if (after.lastVirtue !== before) VT.today.resetLogForm();
+    render();
+    toast(resting ? `${VT.virtueById(id).name} is resting. Its history stays.` : `${VT.virtueById(id).name} is active.`);
   }
 
   // ---------- Weekly check-in ----------
+  function buildFrictionSliders(activeIds) {
+    const wrap = $('friction-list');
+    // Keep values already chosen for virtues that stay listed.
+    const prev = {};
+    wrap.querySelectorAll('input[data-virtue]').forEach((x) => (prev[x.dataset.virtue] = x.value));
+    wrap.innerHTML = '';
+    activeIds.forEach((id) => {
+      const v = VT.virtueById(id);
+      const div = document.createElement('div');
+      div.innerHTML = `
+        <div class="flex items-baseline justify-between">
+          <label for="friction-${id}" class="field-label flex items-center gap-2"><span class="vdot"></span><span data-f="n"></span></label>
+          <output id="friction-${id}-out" class="font-serif text-2xl text-stone-800 tabular-nums">5</output>
+        </div>
+        <input type="range" id="friction-${id}" min="1" max="10" step="1" value="5" class="slider w-full mt-2" data-out="friction-${id}-out" data-virtue="${id}" />`;
+      div.querySelector('.vdot').style.background = v.color;
+      div.querySelector('[data-f="n"]').textContent = `${v.name} · ${v.area}`;
+      wrap.appendChild(div);
+      if (prev[id]) VT.ui.setSlider(`friction-${id}`, prev[id]);
+    });
+  }
+
+  // Pre-select "where did your energy go" from the week's actual logs; the person can override.
+  function prefillEnergy() {
+    if (energyTouched) return;
+    const weekOf = $('week-of').value;
+    const hint = $('energy-hint');
+    hint.textContent = '';
+    document.querySelectorAll('input[name="energy"]').forEach((x) => (x.checked = false));
+    if (!weekOf) return;
+    const end = VT.dates.addDays(weekOf, 6);
+    const wk = VT.store.logs().filter((l) => l.date >= weekOf && l.date <= end);
+    const acts = wk.filter(VT.isDoneAct).length;
+    const fights = wk.filter((l) => l.kind === 'urge' || l.kind === 'slip').length;
+    if (!acts && !fights) return;
+    const value = acts > 0 && acts >= fights ? 'initiation' : 'restriction';
+    document.querySelector(`input[name="energy"][value="${value}"]`).checked = true;
+    hint.textContent = `From your logs that week: ${VT.plural(acts, 'good act')} · ${VT.plural(fights, 'urge or slip', 'urges or slips')}. Pre-selected — change it if that’s not how it felt.`;
+  }
+
   function resetWeeklyForm() {
     $('weekly-form').reset();
+    energyTouched = false;
     $('week-of').value = VT.dates.weekStart(VT.dates.today());
-    setSlider('friction', 5);
+    buildFrictionSliders(VT.store.settings().activeVirtues);
     $('weekly-error').classList.add('hidden');
+    prefillEnergy();
   }
 
   function onWeeklySubmit(e) {
@@ -482,23 +636,20 @@
       $('weekly-error').classList.remove('hidden');
       return;
     }
-    const saved = VT.store.addWeekly({
-      weekOf,
-      friction: $('friction').value,
-      energy: energy.value,
-      compassion,
-      note: $('weekly-note').value,
-    });
-    if (!saved) return toast(SAVE_FAILED);
+    const frictions = {};
+    $('friction-list').querySelectorAll('input[data-virtue]').forEach((x) => (frictions[x.dataset.virtue] = Number(x.value)));
+    const saved = VT.store.addWeekly({ weekOf, frictions, energy: energy.value, compassion, note: $('weekly-note').value });
+    if (!saved) return toast(VT.ui.SAVE_FAILED);
 
-    const paragraphs = VT.insights.weeklyFeedback(saved, VT.store.weeklies(), VT.store.logs());
+    const fb = VT.insights.weeklyFeedback(saved, VT.store.weeklies(), VT.store.logs(), VT.store.settings().activeVirtues);
     const body = $('weekly-feedback-body');
     body.innerHTML = '';
-    paragraphs.forEach((t) => {
+    fb.paragraphs.forEach((t) => {
       const p = document.createElement('p');
       p.textContent = t;
       body.appendChild(p);
     });
+    VT.ui.verse($('weekly-verse'), fb.verse);
     $('weekly-feedback').classList.remove('hidden');
 
     resetWeeklyForm();
@@ -507,14 +658,7 @@
     $('weekly-feedback').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
 
-  // ---------- Sliders ----------
-  function setSlider(id, value) {
-    const el = $(id);
-    el.value = value;
-    if (el.dataset.out) $(el.dataset.out).textContent = el.value;
-  }
-
-  // ---------- Data controls ----------
+  // ---------- Data ----------
   function onExport() {
     const blob = new Blob([VT.store.exportJSON()], { type: 'application/json' });
     const a = document.createElement('a');
@@ -534,78 +678,100 @@
     file.text().then((text) => {
       try {
         const n = VT.store.importJSON(text);
-        celebration = null;
-        $('spouse-name').value = VT.store.settings().spouseName;
-        renderScript();
+        moment = null;
+        VT.today.forget();
+        VT.today.resetLogForm();
+        resetWeeklyForm();
+        $('weekly-feedback').classList.add('hidden');
+        syncScriptForm();
         render();
         toast(`Imported ${n.logs} logs and ${n.weeklies} check-ins`);
       } catch (err) {
+        if (err && err.message === 'Could not save imported data') return toast(VT.ui.SAVE_FAILED);
         toast('That file couldn’t be read as Virtue Tracker data. Nothing was changed.');
       }
     });
   }
 
   function onReset() {
-    if (!confirm('Permanently clear all logs and check-ins from this browser? Export first if you want a backup.')) return;
-    VT.store.clear();
-    celebration = null;
+    if (!confirm('Permanently clear all logs and check-ins from this browser? Your virtues, good acts and plans stay. Export first if you want a backup.')) return;
+    if (!VT.store.clear()) return toast(VT.ui.SAVE_FAILED);
+    VT.today.forget();
+    moment = null;
     $('weekly-feedback').classList.add('hidden');
     render();
-    toast('All data cleared');
+    toast('All logs cleared');
   }
 
   // ---------- Boot ----------
   function init() {
-    renderStageOptions();
-    resetLogForm();
+    VT.app = { render, celebrate, grace };
+
+    // Static scripture placements (Honesty card, Why tab).
+    document.querySelectorAll('figure[data-verse]').forEach((el) => VT.scripture.render(el, el.dataset.verse));
+    $('translation-note').textContent = `${VT.TRANSLATION.notice} Tap “Read in NIV” on any verse for the New International Version.`;
+
+    VT.today.init();
     resetWeeklyForm();
-    $('log-date').max = VT.dates.today();
-    $('spouse-name').value = VT.store.settings().spouseName;
     if (navigator.share) $('script-share').classList.remove('hidden');
-    renderScript();
+    syncScriptForm();
 
     document.addEventListener('input', (e) => {
       const out = e.target.dataset && e.target.dataset.out;
       if (out) $(out).textContent = e.target.value;
     });
 
-    $('log-form').addEventListener('submit', onLogSubmit);
-    $('log-form').addEventListener('change', (e) => {
-      if (e.target.name === 'kind' || e.target.id === 'slip-disclosed') syncLogForm();
-      if (e.target.name === 'stage') {
-        $('stage-error').classList.add('hidden');
-        $('stage-desc').textContent = VT.stageById(e.target.value).desc;
-      }
-    });
-
     $('moment-told').addEventListener('click', () => openDisclose($('moment').dataset.entry));
     $('moment-dismiss').addEventListener('click', onMomentDismiss);
+    $('moment-script').addEventListener('click', onMomentScript);
     $('disclose-form').addEventListener('submit', onDiscloseSubmit);
     $('dlg-cancel').addEventListener('click', closeDisclose);
     $('disclose-dialog').addEventListener('cancel', () => (disclosingId = null));
 
-    $('spouse-name').addEventListener('input', onSpouseName);
+    document.querySelectorAll('input[name="script-to"]').forEach((r) =>
+      r.addEventListener('change', () => {
+        scriptVariant = 0;
+        syncScriptForm();
+      })
+    );
+    $('script-name').addEventListener('input', () => {
+      saveNameSoon(scriptTo() === 'kids' ? 'kidName' : 'spouseName', $('script-name').value);
+      renderScript();
+    });
     ['script-what', 'script-feeling', 'script-need'].forEach((id) => $(id).addEventListener('change', renderScript));
     $('script-what-custom').addEventListener('input', renderScript);
     $('script-copy').addEventListener('click', copyScript);
     $('script-share').addEventListener('click', shareScript);
     $('script-next').addEventListener('click', () => {
-      scriptVariant = (scriptVariant + 1) % VT.script.count;
+      scriptVariant = (scriptVariant + 1) % VT.script.count(scriptTo());
       renderScript();
     });
 
+    $('journey-filter').addEventListener('click', (e) => {
+      const b = e.target.closest('[data-jv]');
+      if (!b) return;
+      journeyVirtue = b.dataset.jv || null;
+      render();
+    });
+    $('virtue-toggles').addEventListener('click', onVirtueToggle);
+    $('set-spouse').addEventListener('input', () => saveNameSoon('spouseName', $('set-spouse').value));
+    $('set-kids').addEventListener('input', () => saveNameSoon('kidName', $('set-kids').value));
+
     $('weekly-form').addEventListener('submit', onWeeklySubmit);
-    $('weekly-form').addEventListener('change', () => $('weekly-error').classList.add('hidden'));
+    $('weekly-form').addEventListener('change', (e) => {
+      $('weekly-error').classList.add('hidden');
+      if (e.target.name === 'energy') energyTouched = true;
+      if (e.target.id === 'week-of') prefillEnergy();
+    });
     $('recent-list').addEventListener('click', onRecentClick);
     $('export-btn').addEventListener('click', onExport);
     $('import-input').addEventListener('change', onImport);
     $('reset-btn').addEventListener('click', onReset);
 
-    // Timers are throttled in background tabs; re-sync the moment the page is visible again.
-    document.addEventListener('visibilitychange', () => document.visibilityState === 'visible' && render());
-
     window.addEventListener('hashchange', () => showTab(tabFromHash()));
     document.addEventListener('click', onTabClick);
+    // Timers are throttled in background tabs; re-sync the moment the page is visible again.
+    document.addEventListener('visibilitychange', () => document.visibilityState === 'visible' && render());
 
     VT.charts.init();
     showTab(tabFromHash(), { scroll: false });

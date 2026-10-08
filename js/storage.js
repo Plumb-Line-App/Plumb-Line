@@ -1,7 +1,20 @@
 // LocalStorage persistence. One versioned key holds logs, weekly check-ins and settings.
+// Older versions (v1 food-only, v2 with honesty fields) are migrated on read.
 (function () {
   const KEY = 'virtue-tracker:v1';
-  const empty = () => ({ version: 2, logs: [], weeklies: [], settings: { spouseName: '' } });
+  const LIST_MAX = 30; // most good acts / if-then plans kept in settings
+
+  const copyAct = (a) => ({ ...a, needs: [...a.needs], virtues: [...a.virtues] });
+  const defaultActs = () => VT.DEFAULT_ACTS.map(copyAct);
+  const defaultSettings = () => ({
+    spouseName: '',
+    kidName: '',
+    acts: defaultActs(),
+    plans: [],
+    activeVirtues: [...VT.VIRTUE_IDS],
+    lastVirtue: VT.VIRTUE_IDS[0],
+  });
+  const empty = () => ({ version: 3, logs: [], weeklies: [], settings: defaultSettings() });
 
   function load() {
     try {
@@ -25,126 +38,237 @@
   }
 
   const isDateKey = (v) => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v);
-  const score10 = (v) => (Number(v) >= 1 && Number(v) <= 10 ? Number(v) : null);
-  const num = (v) => (Number.isFinite(Number(v)) && v !== null && v !== '' ? Number(v) : null);
+  const inRange = (v, lo, hi) => (v !== null && v !== '' && Number(v) >= lo && Number(v) <= hi ? Number(v) : null);
+  const score10 = (v) => inRange(v, 1, 10);
+  const score5 = (v) => inRange(v, 1, 5);
+  const num = (v) => (v !== null && v !== undefined && v !== '' && Number.isFinite(Number(v)) ? Number(v) : null);
+  const str = (v, max) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
+  const virtueIds = (list) => (Array.isArray(list) ? [...new Set(list.filter((id) => VT.VIRTUE_IDS.includes(id)))] : []);
+  const needIds = (list) => (Array.isArray(list) ? [...new Set(list.filter((id) => VT.needById(id)))] : []);
 
   function sanitizeLog(l) {
-    const kind = l.kind === 'slip' ? 'slip' : 'urge';
+    const kind = l.kind === 'slip' || l.kind === 'act' ? l.kind : 'urge';
+    const isSlip = kind === 'slip';
+    const isAct = kind === 'act';
+    const virtue = isAct ? null : VT.VIRTUE_IDS.includes(l.virtue) ? l.virtue : 'temperance';
+    // Only virtues with a repair step (spouse / kids) have an honesty window.
+    const hasWindow = isSlip && VT.virtueById(virtue).repairs.length > 0;
+
+    // Repairs: who a slip was made right with, and when. v2 "disclosed" meant told the spouse.
+    let repairs = null;
+    if (isSlip) {
+      const legacy = !l.repairs || typeof l.repairs !== 'object';
+      const r = legacy ? {} : l.repairs;
+      repairs = { spouse: num(r.spouse), kids: num(r.kids) };
+      // Only migrate records that predate `repairs`; on later writes `disclosed` is derived, not a source.
+      if (legacy && l.disclosed) {
+        repairs.spouse = num(l.disclosedAt) || Number(l.createdAt) || Date.now();
+      }
+    }
+    const repaired = isSlip && (repairs.spouse != null || repairs.kids != null);
+    const firstRepair = repaired ? Math.min(...[repairs.spouse, repairs.kids].filter((t) => t != null)) : null;
+
     return {
       id: String(l.id || VT.uid()),
       date: l.date,
       kind,
+      virtue,
       stage: kind === 'urge' ? Number(l.stage) : null,
+      need: !isAct && VT.needById(l.need) ? l.need : null,
       note: typeof l.note === 'string' ? l.note.slice(0, 1000) : '',
       createdAt: Number(l.createdAt) || Date.now(),
-      // Honesty fields (slips only)
-      disclosed: kind === 'slip' && !!l.disclosed,
-      disclosedAt: kind === 'slip' ? num(l.disclosedAt) : null,
-      windowEndsAt: kind === 'slip' ? num(l.windowEndsAt) : null,
+      // Slip repair & honesty
+      repairs,
+      disclosed: repaired,
+      disclosedAt: repaired ? num(l.disclosedAt) || firstRepair : null,
+      windowEndsAt: hasWindow ? num(l.windowEndsAt) : null,
       windowDismissed: !!l.windowDismissed,
-      predicted: kind === 'slip' ? score10(l.predicted) : null,
-      actual: kind === 'slip' ? score10(l.actual) : null,
+      predicted: isSlip ? score10(l.predicted) : null,
+      actual: isSlip ? score10(l.actual) : null,
+      // Good acts
+      actId: isAct ? String(l.actId || '') : null,
+      label: isAct ? str(l.label, 60) || 'Good act' : null,
+      virtues: isAct ? virtueIds(l.virtues) : null,
+      status: isAct ? (l.status === 'planned' ? 'planned' : 'done') : null,
+      expectLift: isAct ? score5(l.expectLift) : null,
+      lift: isAct ? score5(l.lift) : null,
+      linkedUrgeId: isAct && l.linkedUrgeId ? String(l.linkedUrgeId) : null,
+      planId: isAct && l.planId ? String(l.planId) : null,
+      doneAt: isAct ? num(l.doneAt) : null,
     };
   }
 
-  // Accepts imported or stored data (v1 or v2) and keeps only well-formed records.
-  function sanitize(data) {
-    const out = empty();
-    if (!data || typeof data !== 'object') return out;
-    if (Array.isArray(data.logs)) {
-      out.logs = data.logs
-        .filter((l) => l && isDateKey(l.date) && (l.kind === 'slip' || [1, 2, 3, 4].includes(Number(l.stage))))
-        .map(sanitizeLog);
+  function validLog(l) {
+    if (!l || !isDateKey(l.date)) return false;
+    if (l.kind === 'slip') return true;
+    if (l.kind === 'act') return typeof l.label === 'string' && l.label.trim() !== '';
+    return [1, 2, 3, 4].includes(Number(l.stage));
+  }
+
+  // v1/v2 check-ins had a single food `friction`; v3 has one per virtue.
+  const frictionSource = (w) => (w.frictions && typeof w.frictions === 'object' ? w.frictions : { temperance: w.friction });
+
+  function sanitizeWeekly(w) {
+    const src = frictionSource(w);
+    const frictions = {};
+    for (const id of VT.VIRTUE_IDS) {
+      const f = score10(src[id]);
+      if (f != null) frictions[id] = f;
     }
-    if (Array.isArray(data.weeklies)) {
-      out.weeklies = data.weeklies
-        .filter((w) => w && isDateKey(w.weekOf) && Number(w.friction) >= 1 && Number(w.friction) <= 10)
-        .map((w) => ({
-          id: String(w.id || VT.uid()),
-          weekOf: w.weekOf,
-          friction: Number(w.friction),
-          energy: w.energy === 'initiation' ? 'initiation' : 'restriction',
-          compassion: [0, 1, 2, 3, 4, 5].includes(Number(w.compassion)) ? Number(w.compassion) : 3,
-          note: typeof w.note === 'string' ? w.note.slice(0, 2000) : '',
-          createdAt: Number(w.createdAt) || Date.now(),
+    const vals = Object.values(frictions);
+    return {
+      id: String(w.id || VT.uid()),
+      weekOf: w.weekOf,
+      frictions,
+      friction: VT.round1(vals.reduce((a, b) => a + b, 0) / vals.length),
+      energy: w.energy === 'initiation' ? 'initiation' : 'restriction',
+      compassion: [0, 1, 2, 3, 4, 5].includes(Number(w.compassion)) ? Number(w.compassion) : 3,
+      note: typeof w.note === 'string' ? w.note.slice(0, 2000) : '',
+      createdAt: Number(w.createdAt) || Date.now(),
+    };
+  }
+
+  function validWeekly(w) {
+    if (!w || !isDateKey(w.weekOf)) return false;
+    const src = frictionSource(w);
+    return VT.VIRTUE_IDS.some((id) => score10(src[id]) != null);
+  }
+
+  function sanitizeSettings(s) {
+    const out = defaultSettings();
+    if (!s || typeof s !== 'object') return out;
+    out.spouseName = str(s.spouseName, 40);
+    out.kidName = str(s.kidName, 40);
+    if (Array.isArray(s.acts)) {
+      out.acts = s.acts
+        .filter((a) => a && str(a.label, 60))
+        .slice(0, LIST_MAX)
+        .map((a) => ({ id: String(a.id || VT.uid()), label: str(a.label, 60), needs: needIds(a.needs), virtues: virtueIds(a.virtues) }));
+    }
+    if (Array.isArray(s.plans)) {
+      out.plans = s.plans
+        .filter((p) => p && str(p.when, 120) && str(p.then, 120))
+        .slice(0, LIST_MAX)
+        .map((p) => ({
+          id: String(p.id || VT.uid()),
+          virtue: VT.VIRTUE_IDS.includes(p.virtue) ? p.virtue : VT.VIRTUE_IDS[0],
+          when: str(p.when, 120),
+          then: str(p.then, 120),
+          actId: p.actId ? String(p.actId) : null,
         }));
     }
-    if (data.settings && typeof data.settings.spouseName === 'string') {
-      out.settings.spouseName = data.settings.spouseName.trim().slice(0, 40);
-    }
+    const active = virtueIds(s.activeVirtues);
+    out.activeVirtues = active.length ? active : [...VT.VIRTUE_IDS];
+    out.lastVirtue = out.activeVirtues.includes(s.lastVirtue) ? s.lastVirtue : out.activeVirtues[0];
     return out;
   }
 
-  // Loaded after the helpers above are defined (isDateKey is a const and would be in its TDZ earlier).
+  function sanitize(data) {
+    const out = empty();
+    if (!data || typeof data !== 'object') return out;
+    if (Array.isArray(data.logs)) out.logs = data.logs.filter(validLog).map(sanitizeLog);
+    if (Array.isArray(data.weeklies)) out.weeklies = data.weeklies.filter(validWeekly).map(sanitizeWeekly);
+    out.settings = sanitizeSettings(data.settings);
+    return out;
+  }
+
+  // Loaded after the helpers above are defined (consts would be in their TDZ earlier).
   let state = load();
 
   const byLogOrder = (a, b) => (a.date === b.date ? a.createdAt - b.createdAt : a.date < b.date ? -1 : 1);
   const byWeekOrder = (a, b) => (a.weekOf === b.weekOf ? a.createdAt - b.createdAt : a.weekOf < b.weekOf ? -1 : 1);
+  const copyLog = (l) => ({ ...l, repairs: l.repairs && { ...l.repairs }, virtues: l.virtues && [...l.virtues] });
 
   VT.store = {
-    logs: () => [...state.logs].sort(byLogOrder),
-    weeklies: () => [...state.weeklies].sort(byWeekOrder),
-    getLog: (id) => state.logs.find((l) => l.id === id) || null,
-    settings: () => ({ ...state.settings }),
+    LIST_MAX,
+    // One primitive setting (e.g. spouseName, lastVirtue) without copying the acts and plans lists.
+    setting: (key) => state.settings[key],
+    logs: () => state.logs.map(copyLog).sort(byLogOrder),
+    weeklies: () => state.weeklies.map((w) => ({ ...w, frictions: { ...w.frictions } })).sort(byWeekOrder),
+    getLog: (id) => {
+      const l = state.logs.find((x) => x.id === id);
+      return l ? copyLog(l) : null;
+    },
+    // state.settings is sanitized on every write, so a deep copy is enough here (this is called on every render).
+    settings: () => {
+      const s = state.settings;
+      return {
+        ...s,
+        acts: s.acts.map(copyAct),
+        plans: s.plans.map((p) => ({ ...p })),
+        activeVirtues: [...s.activeVirtues],
+      };
+    },
 
-    // Urge: { date, kind:'urge', stage, note }. Slip: { date, kind:'slip', note, disclosed, predicted, actual }.
+    // Urge: { date, kind:'urge', virtue, stage, need, note }
+    // Slip: { date, kind:'slip', virtue, need, note, repairsDone: ['spouse'|'kids'], predicted, actual }
+    // Act:  { date, kind:'act', actId, label, virtues, status, expectLift, lift, linkedUrgeId, planId, note }
     addLog(input) {
       const now = Date.now();
       const isSlip = input.kind === 'slip';
+      const targets = isSlip ? VT.virtueById(input.virtue).repairs : [];
+      const repairs = {};
+      if (isSlip) (input.repairsDone || []).filter((t) => targets.includes(t)).forEach((t) => (repairs[t] = now));
+      const repaired = Object.keys(repairs).length > 0;
       const entry = sanitizeLog({
         ...input,
         id: VT.uid(),
         note: (input.note || '').trim(),
         createdAt: now,
-        disclosedAt: isSlip && input.disclosed ? now : null,
-        windowEndsAt: isSlip && !input.disclosed ? now + VT.HONESTY_WINDOW_MS : null,
-        actual: isSlip && input.disclosed ? input.actual : null,
+        repairs: isSlip ? repairs : null,
+        disclosedAt: repaired ? now : null,
+        windowEndsAt: isSlip && !repaired && targets.length ? now + VT.HONESTY_WINDOW_MS : null,
+        predicted: isSlip && targets.length ? input.predicted : null,
+        actual: isSlip && repaired ? input.actual : null,
+        doneAt: input.kind === 'act' && input.status !== 'planned' ? now : null,
       });
       state.logs.push(entry);
-      return save() ? entry : null;
+      return save() ? copyLog(entry) : null;
     },
     updateLog(id, patch) {
       const i = state.logs.findIndex((l) => l.id === id);
       if (i < 0) return null;
       state.logs[i] = sanitizeLog({ ...state.logs[i], ...patch });
-      return save() ? state.logs[i] : null;
+      return save() ? copyLog(state.logs[i]) : null;
     },
     deleteLog(id) {
       state.logs = state.logs.filter((l) => l.id !== id);
-      save();
+      return save();
     },
 
-    addWeekly({ weekOf, friction, energy, compassion, note }) {
-      const entry = {
-        id: VT.uid(),
-        weekOf,
-        friction: Number(friction),
-        energy,
-        compassion: Number(compassion),
-        note: note.trim(),
-        createdAt: Date.now(),
-      };
+    addWeekly({ weekOf, frictions, energy, compassion, note }) {
+      const entry = sanitizeWeekly({ id: VT.uid(), weekOf, frictions, energy, compassion, note: (note || '').trim(), createdAt: Date.now() });
+      if (!Object.keys(entry.frictions).length) return null;
       state.weeklies.push(entry);
-      return save() ? entry : null;
+      return save() ? { ...entry, frictions: { ...entry.frictions } } : null;
     },
 
-    setSpouseName(name) {
-      state.settings.spouseName = String(name || '').trim().slice(0, 40);
-      save();
+    updateSettings(patch) {
+      state.settings = sanitizeSettings({ ...state.settings, ...patch });
+      return save();
     },
 
     exportJSON: () => JSON.stringify({ ...state, exportedAt: new Date().toISOString() }, null, 2),
+    // Throws (leaving saved data untouched) when the file isn't Virtue Tracker data or can't be saved.
     importJSON(text) {
-      const next = sanitize(JSON.parse(text));
-      state = next;
-      save();
-      return { logs: next.logs.length, weeklies: next.weeklies.length };
+      const data = JSON.parse(text);
+      if (!data || typeof data !== 'object' || Array.isArray(data) || !(Array.isArray(data.logs) || Array.isArray(data.weeklies))) {
+        throw new Error('Not Virtue Tracker data');
+      }
+      const prev = state;
+      state = sanitize(data);
+      if (!save()) {
+        state = prev;
+        throw new Error('Could not save imported data');
+      }
+      return { logs: state.logs.length, weeklies: state.weeklies.length };
     },
     clear() {
-      const keep = state.settings;
-      state = empty();
-      state.settings = keep;
-      save();
+      const prev = state;
+      state = { ...empty(), settings: prev.settings };
+      if (save()) return true;
+      state = prev;
+      return false;
     },
   };
 })();
