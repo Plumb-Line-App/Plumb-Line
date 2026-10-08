@@ -26,6 +26,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Check the address answers (as given, and all lowercase)
+        run: |
+          mkdir -p results
+          LOWER=$(echo "$URL" | tr '[:upper:]' '[:lower:]')
+          for u in "$URL" "$LOWER"; do
+            echo "$(curl -s -o /dev/null -w '%{http_code}' -L "$u") $u" | tee -a results/address.txt
+          done
+
       - name: Use the newest Xcode
         run: |
           X=$(ls -d /Applications/Xcode_*.app | sort -V | tail -1)

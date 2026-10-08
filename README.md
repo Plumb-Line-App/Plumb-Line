@@ -17,7 +17,7 @@ No build step needed. Either:
 - Open `index.html` directly in a browser, or
 - Serve the folder: `python3 -m http.server` (or `npm start`) and visit `http://localhost:8000`.
 
-Live: https://dmvanblaircom.github.io/Virtue-Tracker/ (served from the `gh-pages` branch). It's installable: open it in Safari → Share → Add to Home Screen. After the first load it works offline.
+Live: https://plumb-line-app.github.io/Plumb-Line/ (served from the `gh-pages` branch). It's installable: open it in Safari → Share → Add to Home Screen. After the first load it works offline.
 
 When shipping changes, bump `VERSION` in `sw.js` so installed copies pick them up.
 
