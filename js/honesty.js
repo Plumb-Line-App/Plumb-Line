@@ -3,7 +3,7 @@
 (function () {
   const { $, toast } = VT.ui;
   const RING = 2 * Math.PI * 52; // circumference of the ring (r = 52)
-  const KEEP_MS = 24 * 60 * 60 * 1000; // a closed window stays here for a day unless dismissed
+  const KEEP_MS = 24 * 60 * 60 * 1000; // a closed window, or an unanswered "how did it go?", stays for a day
   const BASE_TITLE = document.title;
 
   const FEEL_LABELS = { down: 'Down / heavy', stressed: 'Stressed', lonely: 'Lonely', tired: 'Worn out', anxious: 'Anxious', hurried: 'Hurried', numb: 'Numb', unsure: 'Not sure' };
@@ -13,13 +13,15 @@
   const form = { to: 'spouse', what: 'more', whatCustom: '', feeling: 'down', need: 'nothing', variant: 0, edited: false };
   let entryId = null; // slip whose window is open (running or closed)
   let seenId = null; // last open slip the form was set up for
-  let victoryId = null; // slip just made right, waiting for "how did it actually go?"
+  let victoryId = null; // slip made right, on screen asking "how did it actually go?"
+  let actual = { id: null, touched: false }; // only a slider the person actually moved is recorded
+  let focusVictory = false;
+  let starting = false; // a slip is being logged; ignore a second tap
+  let switchTimer = null;
   let ticker = null;
+  let breather = null;
   const timers = {};
-  const later = (key, fn, ms = 400) => {
-    clearTimeout(timers[key]);
-    timers[key] = setTimeout(fn, ms);
-  };
+  const pending = { note: null, predict: null }; // typed/moved but not yet saved: { id, value }
 
   const fmt = (ms) => {
     const total = Math.max(0, Math.ceil(ms / 1000));
@@ -32,6 +34,16 @@
       logs
         .filter((l) => l.kind === 'slip' && !l.disclosed && !l.windowDismissed && l.windowEndsAt && now < l.windowEndsAt + KEEP_MS)
         .sort((a, b) => b.createdAt - a.createdAt)[0] || null
+    );
+  }
+
+  // A slip made right in the last day whose outcome hasn't been recorded or set aside. Read from saved
+  // data, so it survives the app being closed while waiting for a reply.
+  function pendingVictory(logs, now = Date.now()) {
+    return (
+      logs
+        .filter((l) => l.kind === 'slip' && l.disclosed && l.actual == null && !l.outcomeSkipped && l.disclosedAt && now - l.disclosedAt < KEEP_MS)
+        .sort((a, b) => b.disclosedAt - a.disclosedAt)[0] || null
     );
   }
 
@@ -50,7 +62,32 @@
     form.edited = false;
     $('what-custom').value = '';
     VT.ui.setSlider('predict', entry.predicted != null ? entry.predicted : 5);
+    if (entry.predicted == null) $('predict-out').textContent = '–';
     $('slip-note').value = entry.note || '';
+  }
+
+  // ---------- Saving what's typed or moved ----------
+  function flushNote() {
+    clearTimeout(timers.note);
+    const p = pending.note;
+    pending.note = null;
+    if (p && VT.store.getLog(p.id) && !VT.store.updateLog(p.id, { note: p.value })) toast(VT.ui.SAVE_FAILED);
+  }
+
+  function flushPredict() {
+    clearTimeout(timers.predict);
+    const p = pending.predict;
+    pending.predict = null;
+    if (p && VT.store.getLog(p.id)) VT.store.updateLog(p.id, { predicted: p.value });
+  }
+
+  function dropPending(id) {
+    ['note', 'predict'].forEach((k) => {
+      if (pending[k] && (!id || pending[k].id === id)) {
+        clearTimeout(timers[k]);
+        pending[k] = null;
+      }
+    });
   }
 
   // ---------- Builder ----------
@@ -109,7 +146,7 @@
       setHref();
     };
     clearTimeout(timers.fade);
-    if (!animate || !el.offsetParent) return apply();
+    if (!animate || !el.offsetParent || VT.ui.reducedMotion()) return apply();
     el.classList.add('fading');
     timers.fade = setTimeout(apply, 180);
   }
@@ -130,18 +167,16 @@
   }
 
   async function copyScript() {
-    const text = $('script-output').value;
-    try {
-      await navigator.clipboard.writeText(text);
-    } catch {
-      // Fallback for file:// or older browsers.
-      $('script-output').select();
-      document.execCommand('copy');
-    }
+    const ok = await VT.ui.copy($('script-output').value, $('script-output'));
+    if (!ok) return toast('Couldn’t copy automatically. Press and hold the message, then tap Copy.');
     toast(form.to === 'kids' ? 'Copied. Say it at their eye level.' : 'Copied. Send it before the doubt talks you out of it.');
   }
 
   // ---------- The window ----------
+  function setNavLabel(text) {
+    $('nav-script').setAttribute('aria-label', text ? `Honest Script, ${text}` : 'Honest Script');
+  }
+
   function renderWindow(slip, victory) {
     const card = $('window-card');
     const now = Date.now();
@@ -151,9 +186,10 @@
     card.dataset.state = state;
 
     const ring = $('ring');
+    const open = state === 'running' || state === 'closed';
     $('window-dismiss').classList.toggle('hidden', state !== 'closed');
-    $('window-undo').classList.toggle('hidden', state !== 'running');
-    $('window-actions').classList.toggle('hidden', state !== 'running' && state !== 'closed');
+    $('window-undo').classList.toggle('hidden', !open);
+    $('window-actions').classList.toggle('hidden', !open);
 
     if (state === 'none') {
       ring.style.strokeDashoffset = RING;
@@ -161,17 +197,18 @@
       $('ring-label').textContent = 'ready';
       $('window-eyebrow').textContent = '15-minute honesty window';
       $('window-title').textContent = 'No window open right now.';
-      $('window-body').textContent = 'If a slip happens, tap it on Today and the window starts here on its own. The builder below works any time.';
+      $('window-body').textContent = 'If a slip happens, tap it on Today and the window starts here on its own. The words below are ready any time.';
       $('window-extra').classList.add('hidden');
       VT.ui.verse($('window-verse'), null);
       return;
     }
     if (state === 'done') {
+      const kids = victory.repairs && victory.repairs.kids != null;
       ring.style.strokeDashoffset = 0;
       $('ring-time').textContent = 'Done';
-      $('ring-label').textContent = 'nothing hidden';
+      $('ring-label').textContent = kids ? 'repaired' : 'nothing hidden';
       $('window-eyebrow').textContent = 'Window closed';
-      $('window-title').textContent = 'You didn’t let it become a secret.';
+      $('window-title').textContent = kids ? 'You made it right.' : 'You didn’t let it become a secret.';
       $('window-body').textContent = 'Take a breath. Then record how it actually went.';
       $('window-extra').classList.add('hidden');
       VT.ui.verse($('window-verse'), null);
@@ -192,6 +229,7 @@
   }
 
   function tick() {
+    if ($('window-card').dataset.state !== 'running') return stopTicker();
     const slip = entryId && VT.store.getLog(entryId);
     if (!slip || slip.disclosed) return stopTicker();
     const left = slip.windowEndsAt - Date.now();
@@ -203,22 +241,25 @@
     $('ring-time').textContent = fmt(left);
     $('ring-label').textContent = 'left';
     $('nav-badge').textContent = fmt(left);
+    setNavLabel(`${fmt(left)} left in your window`);
     document.title = `${fmt(left)} · ${VT.kidsFirst(VT.virtueById(slip.virtue)) ? 'Repair' : 'Honesty'} window`;
   }
 
   function startTicker() {
     if (!ticker) ticker = setInterval(tick, 1000);
+    if (!breather) breather = setInterval(breathe, 250);
   }
   function stopTicker() {
     clearInterval(ticker);
+    clearInterval(breather);
     ticker = null;
+    breather = null;
     document.title = BASE_TITLE;
   }
 
   // Breathing cue in step with the ring's glow: 4 seconds in, 6 seconds out.
   function breathe() {
     const cue = $('breath-cue');
-    if ($('window-card').dataset.state !== 'running') return;
     const t = (performance.now() / 1000) % 10;
     const text = t < 4 ? 'Breathe in…' : 'Breathe out…';
     if (cue.dataset.text === text) return;
@@ -241,62 +282,76 @@
     $('told-btn').textContent = VT.REPAIRS[target].action();
   }
 
-  function gapLine(predicted) {
-    const a = Number($('actual').value);
-    if (predicted == null) {
-      $('gap-line').textContent = '';
+  function gapLine(log) {
+    const el = $('gap-line');
+    if (!actual.touched || !log || log.predicted == null) {
+      el.textContent = '';
       return;
     }
-    const d = predicted - a;
-    $('gap-line').textContent =
-      `You braced for ${predicted}. It was ${a}. ` +
+    const a = Number($('actual').value);
+    const d = log.predicted - a;
+    el.textContent =
+      `You braced for ${log.predicted}. It was ${a}. ` +
       (d > 0 ? 'Your fear was louder than reality.' : d < 0 ? 'Harder than expected — and you faced it anyway.' : 'You read it right, and still chose the truth.');
   }
 
   function renderVictory(log) {
     $('victory').classList.toggle('hidden', !log);
     if (!log) return;
+    if (actual.id !== log.id) {
+      // A new "how did it go?": nothing answered yet.
+      actual = { id: log.id, touched: false };
+      VT.ui.setSlider('actual', 5);
+      $('actual-out').textContent = '–';
+      $('victory-hint').classList.add('hidden');
+    }
     const copy = VT.insights.moment('celebrate', log);
     $('victory-title').textContent = copy.title;
     $('victory-body').textContent = copy.body;
     VT.ui.verse($('victory-verse'), copy.verse);
-    gapLine(log.predicted);
+    gapLine(log);
   }
 
   function onTold() {
+    flushPredict();
+    flushNote();
     const slip = entryId && VT.store.getLog(entryId);
     if (!slip) return VT.app.render();
-    const v = VT.virtueById(slip.virtue);
-    const target = repairTarget(v);
+    const target = repairTarget(VT.virtueById(slip.virtue));
     const now = Date.now();
-    const saved = VT.store.updateLog(slip.id, {
-      repairs: { ...slip.repairs, [target]: now },
-      disclosedAt: slip.disclosedAt || now,
-      predicted: Number($('predict').value),
-    });
+    const saved = VT.store.updateLog(slip.id, { repairs: { ...slip.repairs, [target]: now }, disclosedAt: slip.disclosedAt || now });
     if (!saved) return toast(VT.ui.SAVE_FAILED);
-    clearTimeout(timers.predict);
     victoryId = saved.id;
-    VT.ui.setSlider('actual', 5);
+    focusVictory = true;
     VT.app.render();
-    requestAnimationFrame(() => $('victory').scrollIntoView({ behavior: 'smooth', block: 'nearest' }));
-  }
-
-  function saveActual() {
-    if (!victoryId) return true;
-    return !!VT.store.updateLog(victoryId, { actual: Number($('actual').value) });
   }
 
   function onVictoryDone() {
-    clearTimeout(timers.actual);
-    if (!saveActual()) return toast(VT.ui.SAVE_FAILED);
+    flushNote();
+    if (!victoryId) return;
+    if (!actual.touched) {
+      $('victory-hint').classList.remove('hidden');
+      return;
+    }
+    if (!VT.store.updateLog(victoryId, { actual: Number($('actual').value) })) return toast(VT.ui.SAVE_FAILED);
     victoryId = null;
     VT.app.render();
     toast('Saved. Your Fear vs. Reality graph just grew.');
     location.hash = '#progress';
   }
 
+  function onVictoryLater() {
+    flushNote();
+    if (!victoryId) return;
+    if (!VT.store.updateLog(victoryId, { outcomeSkipped: true })) return toast(VT.ui.SAVE_FAILED);
+    victoryId = null;
+    VT.app.render();
+    toast('Okay. You can add how it went later from Progress → Recent.');
+  }
+
   // ---------- What was underneath (optional, private) ----------
+  const activeLogId = () => victoryId || entryId;
+
   function renderUnderneath(log) {
     $('slip-need-wrap').classList.toggle('hidden', !log);
     if (!log) return;
@@ -306,14 +361,16 @@
       const n = VT.needById(id);
       wrap.appendChild(VT.ui.pill(n.name, { slipNeed: id }, { pressed: log.need === id, hint: n.hint }));
     });
-    if (document.activeElement !== $('slip-note')) $('slip-note').value = log.note || '';
+    // Don't overwrite a note that's being typed or is waiting to be saved.
+    const typing = document.activeElement === $('slip-note') || (pending.note && pending.note.id === log.id);
+    if (!typing) $('slip-note').value = log.note || '';
   }
-
-  const activeLogId = () => victoryId || entryId;
 
   function onSlipNeed(e) {
     const b = e.target.closest('[data-slip-need]');
-    const log = b && VT.store.getLog(activeLogId());
+    if (!b) return;
+    flushNote();
+    const log = VT.store.getLog(activeLogId());
     if (!log) return;
     const need = log.need === b.dataset.slipNeed ? null : b.dataset.slipNeed;
     if (!VT.store.updateLog(log.id, { need })) return toast(VT.ui.SAVE_FAILED);
@@ -324,6 +381,9 @@
   VT.honesty = {
     // A slip tapped on Today: log it, start the window, and go straight to the words.
     startSlip(virtueId) {
+      if (starting) return; // a double tap must not log two slips
+      starting = true;
+      setTimeout(() => (starting = false), 800);
       const v = VT.virtueById(virtueId);
       const saved = VT.store.addLog({ date: VT.dates.today(), kind: 'slip', virtue: v.id, note: '', repairsDone: [] });
       if (!saved) return toast(VT.ui.SAVE_FAILED);
@@ -332,7 +392,8 @@
         VT.today.showGrace(saved);
         return;
       }
-      victoryId = null;
+      flushNote();
+      flushPredict();
       seenId = saved.id;
       entryId = saved.id;
       applyDefaults(saved);
@@ -341,10 +402,18 @@
         'You’re not in trouble.',
         VT.kidsFirst(v) ? 'Opening your repair window — the words are ready.' : 'Opening your honesty window — the words are ready for you.'
       );
-      setTimeout(() => (location.hash = '#script'), 650);
+      clearTimeout(switchTimer);
+      switchTimer = setTimeout(() => (location.hash = '#script'), 650);
+    },
+
+    // Save anything typed or moved but not yet stored (the page is being hidden or closed).
+    flush() {
+      flushNote();
+      flushPredict();
     },
 
     forget(id) {
+      dropPending(id);
       if (!id || id === victoryId) victoryId = null;
       if (!id || id === entryId) entryId = null;
     },
@@ -355,14 +424,15 @@
     },
 
     init() {
+      // Choosing a tab during the short pause after a slip wins over the automatic switch.
+      window.addEventListener('hashchange', () => clearTimeout(switchTimer));
       $('to-seg').addEventListener('click', (e) => {
         const b = e.target.closest('[data-to]');
         if (!b || b.dataset.to === form.to) return;
         form.to = b.dataset.to;
         form.variant = 0;
         renderBuilder();
-        const slip = entryId && VT.store.getLog(entryId);
-        renderPredict(slip);
+        renderPredict(entryId && !victoryId ? VT.store.getLog(entryId) : null);
       });
       $('what-chips').addEventListener('click', onChip('what', 'what'));
       $('feel-chips').addEventListener('click', onChip('feel', 'feeling'));
@@ -388,22 +458,25 @@
         }
       });
 
-      $('predict').addEventListener('input', () =>
-        later('predict', () => {
-          // Saved as you go, so the prediction is on record before the conversation happens.
-          if (entryId) VT.store.updateLog(entryId, { predicted: Number($('predict').value) });
-        })
-      );
+      // The prediction is saved as you go, to the slip it was made for, before the conversation happens.
+      $('predict').addEventListener('input', () => {
+        if (!entryId) return;
+        pending.predict = { id: entryId, value: Number($('predict').value) };
+        clearTimeout(timers.predict);
+        timers.predict = setTimeout(flushPredict, 400);
+      });
       $('told-btn').addEventListener('click', onTold);
       $('actual').addEventListener('input', () => {
-        const log = victoryId && VT.store.getLog(victoryId);
-        gapLine(log ? log.predicted : null);
-        later('actual', saveActual);
+        actual.touched = true;
+        $('victory-hint').classList.add('hidden');
+        gapLine(victoryId && VT.store.getLog(victoryId));
       });
       $('victory-done').addEventListener('click', onVictoryDone);
+      $('victory-later').addEventListener('click', onVictoryLater);
 
       $('window-dismiss').addEventListener('click', () => {
         if (!entryId) return;
+        VT.honesty.flush();
         if (!VT.store.updateLog(entryId, { windowDismissed: true })) return toast(VT.ui.SAVE_FAILED);
         entryId = null;
         VT.app.render();
@@ -411,6 +484,7 @@
       });
       $('window-undo').addEventListener('click', () => {
         if (!entryId || !confirm('Remove this slip? Use this if you tapped it by mistake.')) return;
+        dropPending(entryId);
         if (!VT.store.deleteLog(entryId)) return toast(VT.ui.SAVE_FAILED);
         entryId = null;
         VT.app.render();
@@ -418,14 +492,15 @@
       });
 
       $('slip-need-chips').addEventListener('click', onSlipNeed);
-      $('slip-note').addEventListener('input', () =>
-        later('note', () => {
-          const id = activeLogId();
-          if (id && !VT.store.updateLog(id, { note: $('slip-note').value.trim() })) toast(VT.ui.SAVE_FAILED);
-        })
-      );
+      $('slip-note').addEventListener('input', () => {
+        const id = activeLogId();
+        if (!id) return;
+        pending.note = { id, value: $('slip-note').value.trim() };
+        clearTimeout(timers.note);
+        timers.note = setTimeout(flushNote, 500);
+      });
+      $('slip-note').addEventListener('blur', flushNote);
 
-      setInterval(breathe, 250);
       renderBuilder();
     },
 
@@ -436,8 +511,10 @@
         seenId = slip.id;
         applyDefaults(slip);
       }
-      const victory = victoryId ? ctx.logs.find((l) => l.id === victoryId) || null : null;
-      if (!victory) victoryId = null;
+      // Keep the victory on screen until it's answered or set aside; otherwise pick up one left unanswered.
+      let victory = victoryId ? ctx.logs.find((l) => l.id === victoryId && l.disclosed && !l.outcomeSkipped) || null : null;
+      if (!victory) victory = pendingVictory(ctx.logs);
+      victoryId = victory ? victory.id : null;
 
       renderWindow(victory ? null : slip, victory);
       renderPredict(victory ? null : slip);
@@ -445,15 +522,27 @@
       renderUnderneath(victory || slip);
       renderBuilder(!form.edited);
 
-      const running = slip && Date.now() < slip.windowEndsAt;
+      const running = !victory && !!slip && Date.now() < slip.windowEndsAt;
       if (running) startTicker();
       else stopTicker();
 
       // Nav badge: the countdown while a window runs; a quiet dot while a slip is still carried alone.
       const badge = $('nav-badge');
+      const waiting = !running && ctx.honesty.unshared > 0;
       badge.classList.toggle('dot', !running);
-      badge.classList.toggle('hidden', !running && !(ctx.honesty.unshared > 0));
-      if (!running) badge.textContent = '';
+      badge.classList.toggle('hidden', !running && !waiting);
+      if (!running) {
+        badge.textContent = '';
+        setNavLabel(waiting ? 'a slip is still waiting to be made right' : '');
+      }
+
+      if (focusVictory && victory) {
+        focusVictory = false;
+        requestAnimationFrame(() => {
+          $('victory-title').focus({ preventScroll: true });
+          VT.ui.reveal($('victory'));
+        });
+      }
     },
   };
 })();

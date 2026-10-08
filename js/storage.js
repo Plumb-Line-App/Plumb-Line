@@ -3,6 +3,7 @@
 (function () {
   const KEY = 'virtue-tracker:v1';
   const LIST_MAX = 30; // most good acts / if-then plans kept in settings
+  let loadProblem = false; // saved data existed but couldn't be read; a copy was set aside
 
   const copyAct = (a) => ({ ...a, needs: [...a.needs], virtues: [...a.virtues] });
   const defaultActs = () => VT.DEFAULT_ACTS.map(copyAct);
@@ -18,12 +19,22 @@
   const empty = () => ({ version: 3, logs: [], weeklies: [], settings: defaultSettings() });
 
   function load() {
+    let raw = null;
     try {
-      const raw = localStorage.getItem(KEY);
+      raw = localStorage.getItem(KEY);
       if (!raw) return empty();
       return sanitize(JSON.parse(raw));
     } catch (err) {
       console.warn('Virtue Tracker: could not read saved data', err);
+      // Never let the next save silently replace data we couldn't read: keep the original text aside.
+      if (raw) {
+        loadProblem = true;
+        try {
+          localStorage.setItem(`${KEY}:unreadable-${Date.now()}`, raw);
+        } catch (e) {
+          /* storage full or blocked; nothing more we can do here */
+        }
+      }
       return empty();
     }
   }
@@ -67,6 +78,7 @@
       }
     }
     const repaired = isSlip && (repairs.spouse != null || repairs.kids != null);
+    const createdAt = num(l.createdAt) || Date.now();
     const firstRepair = repaired ? Math.min(...[repairs.spouse, repairs.kids].filter((t) => t != null)) : null;
 
     return {
@@ -77,13 +89,15 @@
       stage: kind === 'urge' ? Number(l.stage) : null,
       need: !isAct && VT.needById(l.need) ? l.need : null,
       note: typeof l.note === 'string' ? l.note.slice(0, 1000) : '',
-      createdAt: Number(l.createdAt) || Date.now(),
+      createdAt,
       // Slip repair & honesty
       repairs,
       disclosed: repaired,
       disclosedAt: repaired ? num(l.disclosedAt) || firstRepair : null,
-      windowEndsAt: hasWindow ? num(l.windowEndsAt) : null,
+      // A window is at most 15 minutes from when the slip was logged (guards against odd imported values).
+      windowEndsAt: hasWindow && num(l.windowEndsAt) != null ? Math.min(Math.max(num(l.windowEndsAt), createdAt), createdAt + VT.HONESTY_WINDOW_MS) : null,
       windowDismissed: !!l.windowDismissed,
+      outcomeSkipped: isSlip && !!l.outcomeSkipped, // "how did it go?" set aside for later
       predicted: isSlip ? score10(l.predicted) : null,
       actual: isSlip ? score10(l.actual) : null,
       // Good acts
@@ -168,7 +182,16 @@
   function sanitize(data) {
     const out = empty();
     if (!data || typeof data !== 'object') return out;
-    if (Array.isArray(data.logs)) out.logs = data.logs.filter(validLog).map(sanitizeLog);
+    if (Array.isArray(data.logs)) {
+      // Ids must be unique, or removing one entry would remove its twins too.
+      const seen = new Set();
+      out.logs = data.logs.filter(validLog).map((l) => {
+        const log = sanitizeLog(l);
+        if (seen.has(log.id)) log.id = VT.uid() + seen.size;
+        seen.add(log.id);
+        return log;
+      });
+    }
     if (Array.isArray(data.weeklies)) out.weeklies = data.weeklies.filter(validWeekly).map(sanitizeWeekly);
     out.settings = sanitizeSettings(data.settings);
     return out;
@@ -182,6 +205,7 @@
   const copyLog = (l) => ({ ...l, repairs: l.repairs && { ...l.repairs }, virtues: l.virtues && [...l.virtues] });
 
   VT.store = {
+    KEY,
     LIST_MAX,
     // One primitive setting (e.g. spouseName, lastVirtue) without copying the acts and plans lists.
     setting: (key) => state.settings[key],
@@ -225,29 +249,53 @@
         doneAt: input.kind === 'act' && input.status !== 'planned' ? now : null,
       });
       state.logs.push(entry);
-      return save() ? copyLog(entry) : null;
+      if (save()) return copyLog(entry);
+      state.logs.pop(); // keep memory in step with what's actually stored
+      return null;
     },
     updateLog(id, patch) {
       const i = state.logs.findIndex((l) => l.id === id);
       if (i < 0) return null;
-      state.logs[i] = sanitizeLog({ ...state.logs[i], ...patch });
-      return save() ? copyLog(state.logs[i]) : null;
+      const prev = state.logs[i];
+      state.logs[i] = sanitizeLog({ ...prev, ...patch });
+      if (save()) return copyLog(state.logs[i]);
+      state.logs[i] = prev;
+      return null;
     },
     deleteLog(id) {
+      const prev = state.logs;
       state.logs = state.logs.filter((l) => l.id !== id);
-      return save();
+      if (save()) return true;
+      state.logs = prev;
+      return false;
     },
 
     addWeekly({ weekOf, frictions, energy, compassion, note }) {
       const entry = sanitizeWeekly({ id: VT.uid(), weekOf, frictions, energy, compassion, note: (note || '').trim(), createdAt: Date.now() });
       if (!Object.keys(entry.frictions).length) return null;
       state.weeklies.push(entry);
-      return save() ? { ...entry, frictions: { ...entry.frictions } } : null;
+      if (save()) return { ...entry, frictions: { ...entry.frictions } };
+      state.weeklies.pop();
+      return null;
     },
 
     updateSettings(patch) {
-      state.settings = sanitizeSettings({ ...state.settings, ...patch });
-      return save();
+      const prev = state.settings;
+      state.settings = sanitizeSettings({ ...prev, ...patch });
+      if (save()) return true;
+      state.settings = prev;
+      return false;
+    },
+
+    // Another tab or window saved: pick up its data so this one doesn't overwrite it on the next save.
+    reload() {
+      state = load();
+    },
+    // True once if saved data couldn't be read at startup (a copy was kept under another key).
+    takeLoadProblem() {
+      const p = loadProblem;
+      loadProblem = false;
+      return p;
     },
 
     exportJSON: () => JSON.stringify({ ...state, exportedAt: new Date().toISOString() }, null, 2),

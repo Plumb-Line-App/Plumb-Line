@@ -86,6 +86,7 @@ jobs:
           npm install --no-save --no-package-lock playwright@latest
           npx playwright install webkit
           BASE="$URL" OUT=results/webkit BROWSER=webkit node tests/safari/run.js 2>&1 | tee results/webkit.txt
+          BASE="$URL" BROWSER=webkit node tests/safari/regress.js 2>&1 | tee results/webkit-regress.txt
 
       - name: Keep the results
         if: always()

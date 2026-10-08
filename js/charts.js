@@ -105,7 +105,7 @@
         .join('');
       el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="Good acts and urges per week, last ${n} weeks">
         <line x1="${P.l}" x2="${W - P.r}" y1="${base}" y2="${base}" style="stroke: var(--grid)"/>${bars}
-        <text x="${P.l}" y="${H - 5}" font-size="10.5" style="fill: var(--axis)">${n} weeks ago</text>
+        <text x="${P.l}" y="${H - 5}" font-size="10.5" style="fill: var(--axis)">${n - 1} weeks ago</text>
         <text x="${W - P.r}" y="${H - 5}" font-size="10.5" style="fill: var(--axis)" text-anchor="end">This week</text></svg>`;
     },
 
@@ -123,7 +123,7 @@
         legend.appendChild(span);
       });
       const rows = weeklies.filter((w) => ids.some((id) => w.frictions[id] != null)).slice(-10);
-      if (!rows.length) return empty(el, 'Your first weekly check-in starts these lines.');
+      if (!rows.length) return empty(el, weeklies.length ? 'No check-ins yet for the virtues you’re working on now.' : 'Your first weekly check-in starts these lines.');
       const n = rows.length;
       const W = width(el);
       const H = 180;

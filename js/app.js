@@ -11,7 +11,8 @@
   let tab = null;
   let journeyVirtue = null; // null = all
   let energyTouched = false; // once the person picks an energy answer, stop pre-filling it
-  let disclosingId = null;
+  let weekTouched = false; // the check-in week was picked by hand; otherwise it follows the current week
+  let disclosing = null; // { id, outcomeOnly }
   let charts = null; // latest chart data, drawn when Progress is visible
   let chartWidth = 0;
 
@@ -60,7 +61,14 @@
     }
   }
 
-  const tabFromHash = () => decodeURIComponent(location.hash.replace('#', ''));
+  function tabFromHash() {
+    const h = location.hash.replace('#', '');
+    try {
+      return decodeURIComponent(h);
+    } catch (e) {
+      return h; // a malformed link must never stop the app from starting
+    }
+  }
 
   function onTabClick(e) {
     const link = e.target.closest('[data-tab-link]');
@@ -84,11 +92,31 @@
   }
 
   // ---------- Render ----------
+  // Re-rendering rebuilds buttons; put keyboard / VoiceOver focus back on the matching one afterwards.
+  function focusKey() {
+    const el = document.activeElement;
+    if (!el || el === document.body || !el.closest('main, .nav')) return null;
+    if (el.id) return `#${CSS.escape(el.id)}`;
+    const box = el.closest('[id]');
+    const attr = [...el.attributes].find((a) => a.name.startsWith('data-') && a.name !== 'data-f');
+    return box && attr ? `#${CSS.escape(box.id)} [${attr.name}="${CSS.escape(attr.value)}"]` : null;
+  }
+
   function render() {
+    const key = focusKey();
+    draw();
+    const now = document.activeElement;
+    if (key && (!now || now === document.body)) {
+      const target = document.querySelector(key);
+      if (target && target.offsetParent) target.focus({ preventScroll: true });
+    }
+  }
+
+  function draw() {
     const logs = VT.store.logs();
     const weeklies = VT.store.weeklies();
     const s = VT.store.settings();
-    if (journeyVirtue && !s.activeVirtues.includes(journeyVirtue)) journeyVirtue = null;
+    if (journeyVirtue && (s.activeVirtues.length < 2 || !s.activeVirtues.includes(journeyVirtue))) journeyVirtue = null;
 
     const overall = VT.insights.summary(logs, weeklies, null, s.activeVirtues);
     const h = VT.insights.honesty(logs);
@@ -100,6 +128,7 @@
     renderProgress(ctx);
     renderSettings(s);
     renderAnchors(s);
+    syncWeekDate();
   }
 
   // ---------- Progress ----------
@@ -118,7 +147,7 @@
     };
     opt('', 'All');
     s.activeVirtues.forEach((id) => opt(id, VT.virtueById(id).name, VT.virtueById(id).color));
-    filter.classList.toggle('hidden', s.activeVirtues.length < 2);
+    filter.hidden = s.activeVirtues.length < 2;
 
     const sum = journeyVirtue ? VT.insights.summary(logs, weeklies, journeyVirtue, s.activeVirtues) : overall;
     const v = journeyVirtue ? VT.virtueById(journeyVirtue) : null;
@@ -213,9 +242,14 @@
   function renderRecent(logs, allLogs) {
     const list = $('recent-list');
     list.innerHTML = '';
-    const recent = [...logs].reverse().slice(0, RECENT_LIMIT);
+    const newest = [...logs].reverse();
+    // A slip still waiting to be made right stays reachable however much has been logged since.
+    const waiting = (l) => l.kind === 'slip' && !l.disclosed && VT.virtueById(l.virtue).repairs.length > 0;
+    const recent = newest.slice(0, RECENT_LIMIT);
+    newest.slice(RECENT_LIMIT).filter(waiting).forEach((l) => recent.push(l));
     $('recent-empty').classList.toggle('hidden', recent.length > 0);
     $('recent-count').textContent = logs.length > RECENT_LIMIT ? `latest ${RECENT_LIMIT} of ${logs.length}` : '';
+    const weekAgo = Date.now() - 7 * 86400000;
 
     recent.forEach((l) => {
       const li = document.createElement('li');
@@ -281,7 +315,12 @@
             } else {
               // Patience has two repairs (kids and spouse); let the second one be recorded later too.
               const missing = v.repairs.find((t) => !l.repairs || l.repairs[t] == null);
-              if (missing) {
+              if (l.actual == null && l.disclosedAt > weekAgo) {
+                // Told recently, but how it went was never recorded.
+                repair.dataset.repair = 'outcome';
+                repair.textContent = 'How did it go?';
+                repair.classList.remove('hidden');
+              } else if (missing) {
                 repair.dataset.repair = missing;
                 repair.textContent = `Also: ${VT.REPAIRS[missing].action()}`;
                 repair.classList.remove('hidden');
@@ -307,6 +346,7 @@
     const repair = e.target.closest('[data-repair]');
     if (repair) {
       if (repair.dataset.repair === 'first') return openDisclose(repair.dataset.id);
+      if (repair.dataset.repair === 'outcome') return openDisclose(repair.dataset.id, { outcomeOnly: true });
       const entry = VT.store.getLog(repair.dataset.id);
       if (!entry) return;
       const target = repair.dataset.repair;
@@ -326,20 +366,23 @@
     VT.honesty.forget(id);
     render();
     toast('Entry removed');
+    prefillEnergy();
   }
 
   // ---------- Repair made later (from Recent) ----------
-  function openDisclose(id) {
+  // outcomeOnly: the slip was already made right; just record how it actually went.
+  function openDisclose(id, { outcomeOnly = false } = {}) {
     const entry = VT.store.getLog(id);
     if (!entry) return;
     const v = VT.virtueById(entry.virtue);
     if (!v.repairs.length) return;
-    disclosingId = id;
+    VT.honesty.flush();
+    disclosing = { id, outcomeOnly };
 
-    $('dlg-title').textContent = VT.kidsFirst(v) ? 'You made it right.' : 'You told the truth.';
+    $('dlg-title').textContent = outcomeOnly ? 'How did it go?' : VT.kidsFirst(v) ? 'You made it right.' : 'You told the truth.';
     const who = $('dlg-who');
     who.querySelectorAll('label').forEach((x) => x.remove());
-    who.classList.toggle('hidden', v.repairs.length < 2);
+    who.classList.toggle('hidden', outcomeOnly || v.repairs.length < 2);
     $('dlg-who-error').classList.add('hidden');
     v.repairs.forEach((t, i) => {
       const label = document.createElement('label');
@@ -363,13 +406,23 @@
 
   function closeDisclose() {
     VT.ui.closeDialog($('disclose-dialog'));
-    disclosingId = null;
+    disclosing = null;
   }
 
   function onDiscloseSubmit(e) {
     e.preventDefault();
-    const entry = VT.store.getLog(disclosingId);
+    const entry = disclosing && VT.store.getLog(disclosing.id);
     if (!entry) return closeDisclose();
+    if (disclosing.outcomeOnly) {
+      const saved = VT.store.updateLog(entry.id, {
+        predicted: entry.predicted != null ? entry.predicted : $('dlg-predicted').value,
+        actual: $('dlg-actual').value,
+      });
+      closeDisclose();
+      if (!saved) return toast(VT.ui.SAVE_FAILED);
+      render();
+      return toast('Saved. Your Fear vs. Reality graph just grew.');
+    }
     const v = VT.virtueById(entry.virtue);
     const chosen = v.repairs.length > 1 ? [...document.querySelectorAll('input[name="dlg-repair"]:checked')].map((x) => x.value) : [v.repairs[0]];
     if (!chosen.length) return $('dlg-who-error').classList.remove('hidden');
@@ -392,7 +445,19 @@
   }
 
   // ---------- Weekly check-in ----------
+  // An installed app can stay open for days: keep the check-in on the current week unless one was picked.
+  function syncWeekDate() {
+    const today = VT.dates.today();
+    $('week-of').max = today;
+    const want = VT.dates.weekStart(today);
+    if ((!weekTouched || !$('week-of').value) && $('week-of').value !== want) {
+      $('week-of').value = want;
+      prefillEnergy();
+    }
+  }
+
   function openWeekly(open) {
+    if (open) syncWeekDate();
     $('weekly-body').classList.toggle('hidden', !open);
     $('weekly-toggle').textContent = open ? 'Later' : 'Start';
     $('weekly-toggle').setAttribute('aria-expanded', String(open));
@@ -422,26 +487,32 @@
   }
 
   // Pre-select "where did your energy go" from the week's actual logs; the person can override.
+  // The hint always reflects the chosen week; the answer is only pre-selected until the person picks one.
   function prefillEnergy() {
-    if (energyTouched) return;
     const weekOf = $('week-of').value;
     const hint = $('energy-hint');
     hint.textContent = '';
-    document.querySelectorAll('input[name="energy"]').forEach((x) => (x.checked = false));
+    if (!energyTouched) document.querySelectorAll('input[name="energy"]').forEach((x) => (x.checked = false));
     if (!weekOf) return;
     const end = VT.dates.addDays(weekOf, 6);
     const wk = VT.store.logs().filter((l) => l.date >= weekOf && l.date <= end);
     const acts = wk.filter(VT.isDoneAct).length;
     const fights = wk.filter((l) => l.kind === 'urge' || l.kind === 'slip').length;
     if (!acts && !fights) return;
+    const counts = `From your logs that week: ${VT.plural(acts, 'good act')} · ${VT.plural(fights, 'urge or slip', 'urges or slips')}.`;
+    if (energyTouched) {
+      hint.textContent = counts;
+      return;
+    }
     const value = acts > 0 && acts >= fights ? 'initiation' : 'restriction';
     document.querySelector(`input[name="energy"][value="${value}"]`).checked = true;
-    hint.textContent = `From your logs that week: ${VT.plural(acts, 'good act')} · ${VT.plural(fights, 'urge or slip', 'urges or slips')}. Pre-selected — change it if that’s not how it felt.`;
+    hint.textContent = `${counts} Pre-selected — change it if that’s not how it felt.`;
   }
 
   function resetWeeklyForm() {
     $('weekly-form').reset();
     energyTouched = false;
+    weekTouched = false;
     $('week-of').value = VT.dates.weekStart(VT.dates.today());
     $('week-of').max = VT.dates.today();
     buildFrictionSliders(VT.store.settings().activeVirtues);
@@ -454,7 +525,13 @@
     const energy = document.querySelector('input[name="energy"]:checked');
     const compassion = $('compassion').value;
     const weekOf = $('week-of').value;
+    if (weekOf > VT.dates.today()) {
+      $('weekly-error').textContent = 'That week hasn’t started yet. Pick this week or an earlier one.';
+      $('weekly-error').classList.remove('hidden');
+      return;
+    }
     if (!energy || compassion === '' || !weekOf) {
+      $('weekly-error').textContent = 'Two more answers and you’re done: where your energy went, and how you met yourself.';
       $('weekly-error').classList.remove('hidden');
       return;
     }
@@ -477,7 +554,7 @@
     $('weekly-feedback').classList.remove('hidden');
     render();
     toast('Check-in saved');
-    $('weekly-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    VT.ui.reveal($('weekly-card'), 'start');
   }
 
   // ---------- Settings ----------
@@ -582,9 +659,9 @@
     const add = (label, color, text) => {
       const li = document.createElement('li');
       li.className = 'anchor';
-      li.innerHTML = '<p class="text-xs font-semibold"></p><p class="anchor-text"></p>';
-      li.firstChild.style.color = color;
-      li.firstChild.textContent = label;
+      li.innerHTML = '<p class="anchor-label"><span class="vdot"></span><span></span></p><p class="anchor-text"></p>';
+      li.querySelector('.vdot').style.background = color;
+      li.firstChild.lastChild.textContent = label;
       li.lastChild.textContent = text;
       list.appendChild(li);
     };
@@ -616,17 +693,21 @@
     sync();
     window.addEventListener('resize', sync);
 
-    document.querySelectorAll('#foundations details.foundation, #foundations details.vice').forEach((d) => {
+    document.querySelectorAll('#foundations-list details.foundation, #foundations-list details.vice').forEach((d) => {
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'collapse-btn';
       btn.innerHTML = `${d.classList.contains('vice') ? 'Close' : 'Close section'} <span aria-hidden="true">&uarr;</span>`;
-      btn.addEventListener('click', () => (d.open = false));
+      btn.addEventListener('click', () => {
+        d.open = false;
+        // The button just disappeared; keep keyboard / VoiceOver focus on the section's title.
+        d.querySelector(':scope > summary').focus({ preventScroll: true });
+      });
       d.querySelector(':scope > .foundation-body, :scope > .vice-body').appendChild(btn);
     });
 
     // 'toggle' doesn't bubble, so listen in the capture phase.
-    $('foundations').addEventListener(
+    $('foundations-list').addEventListener(
       'toggle',
       (e) => {
         const d = e.target;
@@ -661,7 +742,7 @@
 
     $('disclose-form').addEventListener('submit', onDiscloseSubmit);
     $('dlg-cancel').addEventListener('click', closeDisclose);
-    $('disclose-dialog').addEventListener('close', () => (disclosingId = null));
+    $('disclose-dialog').addEventListener('close', () => (disclosing = null));
 
     $('journey-filter').addEventListener('click', (e) => {
       const b = e.target.closest('[data-jv]');
@@ -679,7 +760,10 @@
     $('weekly-form').addEventListener('change', (e) => {
       $('weekly-error').classList.add('hidden');
       if (e.target.name === 'energy') energyTouched = true;
-      if (e.target.id === 'week-of') prefillEnergy();
+      if (e.target.id === 'week-of') {
+        weekTouched = true;
+        prefillEnergy();
+      }
     });
     $('recent-list').addEventListener('click', onRecentClick);
     $('export-btn').addEventListener('click', onExport);
@@ -694,10 +778,27 @@
       init.resizeTimer = setTimeout(() => drawCharts(false), 150);
     });
     // Timers are throttled in background tabs; re-sync the moment the page is visible again.
-    document.addEventListener('visibilitychange', () => document.visibilityState === 'visible' && render());
+    // Going to the background (or being closed) saves anything typed but not yet stored.
+    const flush = () => {
+      VT.today.flush();
+      VT.honesty.flush();
+    };
+    document.addEventListener('visibilitychange', () => (document.visibilityState === 'visible' ? render() : flush()));
+    window.addEventListener('pagehide', flush);
+    // Another tab or window saved: take its data so this one doesn't overwrite it.
+    window.addEventListener('storage', (e) => {
+      if (e.key !== VT.store.KEY) return;
+      VT.store.reload();
+      render();
+    });
+    // iOS only shows :active pressed states when a touch listener exists.
+    document.addEventListener('touchstart', () => {}, { passive: true });
 
     showTab(tabFromHash(), { scroll: false });
     render();
+    if (VT.store.takeLoadProblem()) {
+      VT.ui.banner('Your saved data couldn’t be read.', 'A copy was kept on this device, untouched. New entries start fresh — export soon so nothing is lost.', 9000);
+    }
     // Web fonts change the tab label widths; re-place the indicator once they're in.
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => moveIndicator(false));
   }

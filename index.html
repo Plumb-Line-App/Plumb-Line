@@ -53,7 +53,7 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v2M12 19v2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M3 12h2M19 12h2M5.6 18.4 7 17M17 7l1.4-1.4"/><circle cx="12" cy="12" r="3.5"/></svg>
       <span>Today</span>
     </a>
-    <a href="#script" data-tab-link="script" class="nav-btn">
+    <a href="#script" data-tab-link="script" class="nav-btn" id="nav-script">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/><path d="M8 11h8M8 14.5h5"/></svg>
       <span>Honest Script</span>
       <span class="nav-badge hidden" id="nav-badge" aria-hidden="true"></span>
@@ -117,8 +117,8 @@
           <!-- Urge details: opens in place -->
           <div id="urge-panel" class="hidden mt-5 pt-5 divider-top">
             <p class="eyebrow">Where was it on the path?</p>
-            <div class="mt-2 grid grid-cols-2 gap-2" id="stage-options"></div>
-            <p class="text-sm text-mist mt-2 min-h-[2.5rem] leading-snug" id="stage-desc">Tap the stage that fits best.</p>
+            <div class="mt-2 grid grid-cols-2 gap-2" id="stage-options" role="group" aria-label="Stage"></div>
+            <p class="text-sm text-mist mt-2 min-h-[2.5rem] leading-snug" id="stage-desc" aria-live="polite">Tap the stage that fits best.</p>
 
             <p class="eyebrow mt-4">What did you actually need? <span class="normal-case tracking-normal font-normal text-dim">(optional)</span></p>
             <div class="mt-2 flex flex-wrap gap-2" id="need-chips"></div>
@@ -128,7 +128,7 @@
               <div class="mt-2 flex flex-wrap gap-2" id="alt-chips"></div>
               <div id="alt-lift" class="hidden mt-3">
                 <p class="text-sm text-mist">How much did it help?</p>
-                <div id="alt-rate" class="rate-row mt-2"></div>
+                <div id="alt-rate" class="rate-row mt-2" role="group" aria-label="How much it helped, 1 to 5"></div>
               </div>
             </div>
 
@@ -137,7 +137,7 @@
               <textarea id="log-note" rows="2" maxlength="1000" class="field sm:col-span-2" placeholder="Add a note (optional)"></textarea>
               <label class="field-date">
                 <span class="text-xs text-dim">Day</span>
-                <input type="date" id="log-date" class="field" aria-label="Date of this reflection" />
+                <input type="date" id="log-date" class="field" />
               </label>
             </div>
 
@@ -177,7 +177,7 @@
           <div id="act-followup" class="followup hidden mt-4" aria-live="polite">
             <p id="act-followup-title" class="text-sm font-semibold"></p>
             <p id="act-followup-q" class="text-sm text-mist mt-1"></p>
-            <div id="act-rate" class="rate-row mt-2"></div>
+            <div id="act-rate" class="rate-row mt-2" role="group" aria-label="How much it helped, 1 to 5"></div>
             <p id="act-followup-result" class="text-sm mt-2"></p>
             <figure id="act-verse" class="mt-3"></figure>
             <div class="mt-3 flex gap-2">
@@ -225,113 +225,110 @@
         <p class="text-mist mt-1">You don’t have to find the words. They’re here.</p>
       </header>
 
-      <!-- Phones: window, the words, the "I told" button, then the builder. Desktop: two columns. -->
-      <div class="mt-5 flex flex-col gap-5 lg:grid lg:grid-cols-2 lg:items-start">
-        <div class="contents lg:block lg:space-y-5 min-w-0">
-          <!-- The window -->
-          <section class="panel p-5 sm:p-6 order-1 lg:order-none" id="window-card" data-state="none">
-            <div class="flex items-center gap-5">
-              <div class="ring-wrap shrink-0">
-                <div class="ring-breath" aria-hidden="true"></div>
-                <svg viewBox="0 0 120 120" class="ring-svg" aria-hidden="true">
-                  <circle cx="60" cy="60" r="52" fill="none" stroke-width="7" class="ring-track"/>
-                  <circle cx="60" cy="60" r="52" fill="none" stroke-width="7" class="ring-bar" id="ring" stroke-dasharray="326.73" stroke-dashoffset="326.73"/>
-                </svg>
-                <div class="ring-center">
-                  <p class="h-display ring-time" id="ring-time">15:00</p>
-                  <p class="ring-label" id="ring-label">ready</p>
-                </div>
-              </div>
-              <div class="min-w-0">
-                <p class="eyebrow text-twilight" id="window-eyebrow">15-minute honesty window</p>
-                <p class="h-display text-lg font-semibold mt-1 leading-snug" id="window-title"></p>
-                <p class="breath-cue" id="breath-cue" aria-hidden="true">Breathe in…</p>
+      <!-- DOM order is the phone order (window, the words, the "I told" step, the builder), so screen readers
+           and keyboards follow what's on screen. On desktop the same cards sit in two columns. -->
+      <div class="mt-5 grid gap-5 lg:grid-cols-2 lg:items-start">
+        <section class="panel p-5 sm:p-6 lg:col-start-1 lg:row-start-1 lg:self-stretch" id="window-card" data-state="none">
+          <div class="flex items-center gap-5">
+            <div class="ring-wrap shrink-0">
+              <div class="ring-breath" aria-hidden="true"></div>
+              <svg viewBox="0 0 120 120" class="ring-svg" aria-hidden="true">
+                <circle cx="60" cy="60" r="52" fill="none" stroke-width="7" class="ring-track"/>
+                <circle cx="60" cy="60" r="52" fill="none" stroke-width="7" class="ring-bar" id="ring" stroke-dasharray="326.73" stroke-dashoffset="326.73"/>
+              </svg>
+              <div class="ring-center">
+                <p class="h-display ring-time" id="ring-time">15:00</p>
+                <p class="ring-label" id="ring-label">ready</p>
               </div>
             </div>
-            <p class="text-sm text-mist mt-4 leading-relaxed" id="window-body"></p>
-            <p class="text-sm text-mist mt-3 hidden" id="window-extra"></p>
-            <figure id="window-verse" class="verse-box mt-4"></figure>
-            <div class="mt-4 flex flex-wrap items-center justify-between gap-3" id="window-actions">
-              <button type="button" id="window-dismiss" class="btn btn-ghost btn-sm hidden">Not right now</button>
-              <button type="button" id="window-undo" class="link-quiet hidden">Tapped by mistake? Remove it</button>
+            <div class="min-w-0">
+              <p class="eyebrow text-twilight" id="window-eyebrow">15-minute honesty window</p>
+              <p class="h-display text-lg font-semibold mt-1 leading-snug" id="window-title"></p>
+              <p class="breath-cue" id="breath-cue" aria-hidden="true">Breathe in…</p>
             </div>
-          </section>
+          </div>
+          <p class="text-sm text-mist mt-4 leading-relaxed" id="window-body"></p>
+          <p class="text-sm text-mist mt-3 hidden" id="window-extra"></p>
+          <figure id="window-verse" class="verse-box mt-4"></figure>
+          <div class="mt-4 flex flex-wrap items-center justify-between gap-3" id="window-actions">
+            <button type="button" id="window-dismiss" class="btn btn-ghost btn-sm hidden">Not right now</button>
+            <button type="button" id="window-undo" class="link-quiet hidden">Tapped by mistake? Remove it</button>
+          </div>
+        </section>
 
-          <!-- Builder -->
-          <section class="panel p-5 sm:p-6 order-4 lg:order-none">
-            <div class="flex flex-wrap items-center justify-between gap-3">
-              <h2 class="h-display text-xl font-semibold">Build your message</h2>
-              <div class="seg whitespace-nowrap" id="to-seg" role="group" aria-label="Who it’s for">
-                <button type="button" data-to="spouse" aria-pressed="true" id="to-spouse">My spouse</button>
-                <button type="button" data-to="kids" aria-pressed="false">The kids</button>
-              </div>
-            </div>
-            <p class="eyebrow mt-5">What happened</p>
-            <div class="mt-2 flex flex-wrap gap-2" id="what-chips"></div>
-            <input type="text" id="what-custom" maxlength="140" class="field mt-2 hidden" placeholder="I …" aria-label="Describe what happened" />
-            <div id="spouse-only">
-              <p class="eyebrow mt-5">How I’m feeling</p>
-              <div class="mt-2 flex flex-wrap gap-2" id="feel-chips"></div>
-              <p class="eyebrow mt-5">What would help</p>
-              <div class="mt-2 flex flex-wrap gap-2" id="help-chips"></div>
-            </div>
-            <div id="slip-need-wrap" class="hidden">
-              <p class="eyebrow mt-5">What was underneath it? <span class="normal-case tracking-normal font-normal text-dim">(optional, just for you)</span></p>
-              <div class="mt-2 flex flex-wrap gap-2" id="slip-need-chips"></div>
-              <label for="slip-note" class="sr-only">Note about this slip</label>
-              <textarea id="slip-note" rows="2" maxlength="1000" class="field mt-3" placeholder="Anything to remember about it? (optional)"></textarea>
-            </div>
-          </section>
-        </div>
+        <section class="panel preview-panel p-5 sm:p-6 lg:col-start-2 lg:row-start-1">
+          <div class="flex items-center justify-between gap-3">
+            <p class="eyebrow">Your Vulnerability Script</p>
+            <button type="button" class="link text-xs font-medium" id="script-next">Say it another way</button>
+          </div>
+          <label for="script-output" class="sr-only">Your message</label>
+          <textarea id="script-output" class="script-text mt-3" rows="5"></textarea>
+          <p id="kids-tip" class="hidden text-xs text-dim mt-1">Say it at their eye level, keep it short, and let them answer. Don’t explain why you yelled — that turns an apology into an excuse.</p>
+          <div class="mt-4 flex flex-wrap gap-2">
+            <a class="btn btn-blue flex-1 min-w-[9rem]" id="text-btn" href="#">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4" aria-hidden="true"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
+              <span id="text-label">Text</span>
+            </a>
+            <button type="button" class="btn btn-ghost" id="script-copy">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              Copy
+            </button>
+          </div>
+        </section>
 
-        <div class="contents lg:block lg:space-y-5 min-w-0 lg:sticky lg:top-24">
-          <!-- Preview -->
-          <section class="panel preview-panel p-5 sm:p-6 order-2 lg:order-none">
-            <div class="flex items-center justify-between gap-3">
-              <p class="eyebrow">Your Vulnerability Script</p>
-              <button type="button" class="link text-xs font-medium" id="script-next">Say it another way</button>
-            </div>
-            <label for="script-output" class="sr-only">Your message</label>
-            <textarea id="script-output" class="script-text mt-3" rows="5"></textarea>
-            <p id="kids-tip" class="hidden text-xs text-dim mt-1">Say it at their eye level, keep it short, and let them answer. Don’t explain why you yelled — that turns an apology into an excuse.</p>
-            <div class="mt-4 flex flex-wrap gap-2">
-              <a class="btn btn-blue flex-1 min-w-[9rem]" id="text-btn" href="#">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4" aria-hidden="true"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
-                <span id="text-label">Text</span>
-              </a>
-              <button type="button" class="btn btn-ghost" id="script-copy">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-                Copy
-              </button>
-            </div>
-          </section>
+        <section class="panel p-5 sm:p-6 lg:col-start-2 lg:row-start-2 hidden" id="predict-card">
+          <div class="flex items-baseline justify-between gap-3">
+            <label for="predict" class="text-sm font-medium" id="predict-label">Before you send: how hard do you expect it to go?</label>
+            <output class="h-display text-2xl font-semibold tabular-nums" id="predict-out">5</output>
+          </div>
+          <input type="range" min="1" max="10" value="5" class="range mt-3" id="predict" data-out="predict-out" />
+          <div class="scale-legend"><span>1 · We’ll feel closer</span><span>10 · Serious rupture</span></div>
+          <button type="button" class="btn btn-mint w-full mt-5" id="told-btn"></button>
+        </section>
 
-          <!-- Prediction, then the outcome -->
-          <section class="panel p-5 sm:p-6 order-3 lg:order-none hidden" id="predict-card">
-            <div class="flex items-baseline justify-between gap-3">
-              <label for="predict" class="text-sm font-medium" id="predict-label">Before you send: how hard do you expect it to go?</label>
-              <output class="h-display text-2xl font-semibold tabular-nums" id="predict-out">5</output>
-            </div>
-            <input type="range" min="1" max="10" value="5" class="range mt-3" id="predict" data-out="predict-out" />
-            <div class="scale-legend"><span>1 · We’ll feel closer</span><span>10 · Serious rupture</span></div>
-            <button type="button" class="btn btn-mint w-full mt-5" id="told-btn"></button>
-          </section>
+        <section class="panel victory-panel p-5 sm:p-6 lg:col-start-2 lg:row-start-2 hidden" id="victory">
+          <p class="eyebrow text-mint">Double victory</p>
+          <p class="h-display text-2xl font-semibold mt-1" id="victory-title" tabindex="-1"></p>
+          <p class="text-sm text-mist mt-2" id="victory-body"></p>
+          <div class="mt-4 flex items-baseline justify-between gap-3">
+            <label for="actual" class="text-sm font-medium">How did it actually go?</label>
+            <output class="h-display text-2xl font-semibold tabular-nums" id="actual-out">–</output>
+          </div>
+          <input type="range" min="1" max="10" value="5" class="range mt-3" id="actual" data-out="actual-out" />
+          <div class="scale-legend"><span>1 · We felt closer</span><span>10 · Serious rupture</span></div>
+          <p class="text-sm mt-3 text-mint" id="gap-line"></p>
+          <figure id="victory-verse" class="mt-4"></figure>
+          <div class="mt-4 flex gap-2">
+            <button type="button" class="btn btn-mint flex-1" id="victory-done">Save to Progress</button>
+            <button type="button" class="btn btn-ghost" id="victory-later">Not now</button>
+          </div>
+          <p class="text-xs text-dim mt-2 hidden" id="victory-hint" role="status">Move the slider to how it actually went, or tap Not now and add it later from Progress.</p>
+        </section>
 
-          <section class="panel victory-panel p-5 sm:p-6 order-3 lg:order-none hidden" id="victory" aria-live="polite">
-            <p class="eyebrow text-mint">Double victory</p>
-            <p class="h-display text-2xl font-semibold mt-1" id="victory-title"></p>
-            <p class="text-sm text-mist mt-2" id="victory-body"></p>
-            <div class="mt-4 flex items-baseline justify-between gap-3">
-              <label for="actual" class="text-sm font-medium">How did it actually go?</label>
-              <output class="h-display text-2xl font-semibold tabular-nums" id="actual-out">5</output>
+        <section class="panel p-5 sm:p-6 lg:col-start-1 lg:row-start-2 lg:row-span-2">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <h2 class="h-display text-xl font-semibold">Build your message</h2>
+            <div class="seg whitespace-nowrap" id="to-seg" role="group" aria-label="Who it’s for">
+              <button type="button" data-to="spouse" aria-pressed="true" id="to-spouse">My spouse</button>
+              <button type="button" data-to="kids" aria-pressed="false">The kids</button>
             </div>
-            <input type="range" min="1" max="10" value="5" class="range mt-3" id="actual" data-out="actual-out" />
-            <div class="scale-legend"><span>1 · We felt closer</span><span>10 · Serious rupture</span></div>
-            <p class="text-sm mt-3 text-mint" id="gap-line"></p>
-            <figure id="victory-verse" class="mt-4"></figure>
-            <button type="button" class="btn btn-ghost w-full mt-4" id="victory-done">Save to Progress</button>
-          </section>
-        </div>
+          </div>
+          <p class="eyebrow mt-5">What happened</p>
+          <div class="mt-2 flex flex-wrap gap-2" id="what-chips"></div>
+          <input type="text" id="what-custom" maxlength="140" class="field mt-2 hidden" placeholder="I …" aria-label="Describe what happened" />
+          <div id="spouse-only">
+            <p class="eyebrow mt-5">How I’m feeling</p>
+            <div class="mt-2 flex flex-wrap gap-2" id="feel-chips"></div>
+            <p class="eyebrow mt-5">What would help</p>
+            <div class="mt-2 flex flex-wrap gap-2" id="help-chips"></div>
+          </div>
+          <div id="slip-need-wrap" class="hidden">
+            <p class="eyebrow mt-5">What was underneath it? <span class="normal-case tracking-normal font-normal text-dim">(optional, just for you)</span></p>
+            <div class="mt-2 flex flex-wrap gap-2" id="slip-need-chips"></div>
+            <label for="slip-note" class="sr-only">Note about this slip</label>
+            <textarea id="slip-note" rows="2" maxlength="1000" class="field mt-3" placeholder="Anything to remember about it? (optional)"></textarea>
+          </div>
+        </section>
       </div>
     </main>
 
@@ -520,7 +517,7 @@
         <ul class="mt-3 grid gap-3 sm:grid-cols-2" id="anchors"></ul>
       </section>
 
-      <section id="foundations" class="mt-5">
+      <section id="foundations-list" class="mt-5">
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
 
           <details class="panel foundation lg:col-span-2">
@@ -800,6 +797,7 @@
       <p class="mt-1 text-sm text-mist leading-relaxed">Name the things that genuinely help. Tag the virtues each one serves and the needs it meets — they’ll be suggested when a pull comes for that need.</p>
       <ul id="acts-edit-list" class="mt-4 space-y-3 max-h-[55vh] overflow-y-auto pr-1"></ul>
       <button type="button" id="acts-add" class="btn btn-ghost btn-sm mt-3">+ Add one</button>
+      <p id="acts-error" class="hidden text-sm text-twilight mt-3" role="alert"></p>
       <div class="flex justify-end gap-2 mt-4">
         <button type="button" id="acts-cancel" class="btn btn-ghost btn-sm">Cancel</button>
         <button type="submit" class="btn btn-mint btn-sm">Save</button>

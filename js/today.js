@@ -12,6 +12,8 @@
   let followTimer = null;
   let graceId = null;
   let bloomId = null;
+  let dateTouched = false; // the urge's day was picked by hand; otherwise it follows today, even past midnight
+  let noteTimer = null;
 
   const PLAN_EXAMPLES = {
     temperance: 'e.g. When I get home after a hard day → I change clothes and walk for 10 minutes.',
@@ -36,7 +38,7 @@
     if (id === currentId()) return;
     if (!VT.store.updateSettings({ lastVirtue: id })) return toast(VT.ui.SAVE_FAILED);
     closeFollowup(true);
-    resetUrge();
+    resetUrge({ keep: true });
     hideGrace();
     VT.app.render();
   }
@@ -97,8 +99,9 @@
     const W = 340;
     const H = 132;
     const sel = ctx.settings.lastVirtue;
+    const calm = VT.ui.reducedMotion();
     const stars = [[40, 22], [92, 14], [150, 30], [210, 12], [262, 24], [120, 46], [180, 40]]
-      .map(([x, y], i) => `<circle cx="${x}" cy="${y}" r="${i % 3 ? 0.9 : 1.3}" style="fill: var(--star)" opacity="${0.35 + 0.15 * (i % 3)}"${i % 2 ? ' class="pulse"' : ''}/>`)
+      .map(([x, y], i) => `<circle cx="${x}" cy="${y}" r="${i % 3 ? 0.9 : 1.3}" style="fill: var(--star)" opacity="${0.35 + 0.15 * (i % 3)}"${i % 2 && !calm ? ' class="pulse"' : ''}/>`)
       .join('');
     // Selected virtue last so it sits on top.
     const order = [...ctx.overall.perVirtue].sort((a, b) => (a.id === sel) - (b.id === sel));
@@ -109,7 +112,7 @@
         const on = p.id === sel;
         const faint = p.score == null ? ' opacity=".5"' : '';
         return (
-          (on ? `<circle cx="${x}" cy="${y}" r="13" style="fill: ${v.color}" opacity=".22"><animate attributeName="r" values="11;15;11" dur="10s" repeatCount="indefinite"/></circle>` : '') +
+          (on ? `<circle cx="${x}" cy="${y}" r="13" style="fill: ${v.color}" opacity=".22">${calm ? '' : '<animate attributeName="r" values="11;15;11" dur="10s" repeatCount="indefinite"/>'}</circle>` : '') +
           `<circle cx="${x}" cy="${y}" r="${on ? 7 : 5.5}" style="fill: ${v.color}; stroke: var(--marker-ring)" stroke-width="2.5"${faint}><title>${v.name}: ${p.phase}</title></circle>`
         );
       })
@@ -155,7 +158,7 @@
     $('door-urge').setAttribute('aria-expanded', String(open));
     if (open) {
       hideGrace();
-      requestAnimationFrame(() => $('urge-panel').scrollIntoView({ behavior: 'smooth', block: 'nearest' }));
+      requestAnimationFrame(() => VT.ui.reveal($('urge-panel')));
     }
   }
 
@@ -264,16 +267,26 @@
     VT.ui.setRate($('alt-rate'), altLift);
   }
 
-  function resetUrge() {
-    stageSel = null;
+  // `keep`: switching virtue keeps the stage and note (neither is specific to a virtue); needs and choices reset.
+  function resetUrge({ keep = false } = {}) {
+    if (!keep) {
+      stageSel = null;
+      $('log-note').value = '';
+      dateTouched = false;
+    }
     needSel = null;
     altSel = null;
     altLift = null;
-    $('log-note').value = '';
-    $('log-date').value = VT.dates.today();
-    $('log-date').max = VT.dates.today();
+    syncDate();
     renderStageOptions();
     syncUrgeForm();
+  }
+
+  // An installed app can stay open for days: keep "today" current unless a day was picked by hand.
+  function syncDate() {
+    const today = VT.dates.today();
+    $('log-date').max = today;
+    if (!dateTouched || !$('log-date').value) $('log-date').value = today;
   }
 
   function onSaveUrge() {
@@ -285,7 +298,11 @@
     }
     const today = VT.dates.today();
     const picked = $('log-date').value;
-    const date = picked && picked <= today ? picked : today;
+    if (picked > today) {
+      $('log-date').value = today;
+      return toast('That day hasn’t happened yet — it’s set to today now.');
+    }
+    const date = picked || today;
     const saved = VT.store.addLog({ date, kind: 'urge', virtue: v.id, stage: stageSel, need: needSel, note: $('log-note').value });
     if (!saved) return toast(VT.ui.SAVE_FAILED);
 
@@ -304,8 +321,8 @@
           linkedUrgeId: saved.id,
         });
         if (!alt) {
-          resetUrge();
-          toggleUrge(false);
+          // Keep it all-or-nothing: take the urge back out and leave the form as it was, ready to retry.
+          VT.store.deleteLog(saved.id);
           VT.app.render();
           return toast(VT.ui.SAVE_FAILED);
         }
@@ -327,7 +344,7 @@
     $('grace-body').textContent = copy.body;
     VT.ui.verse($('grace-verse'), copy.verse);
     $('grace-note').classList.remove('hidden');
-    requestAnimationFrame(() => $('grace-note').scrollIntoView({ behavior: 'smooth', block: 'nearest' }));
+    requestAnimationFrame(() => VT.ui.reveal($('grace-note')));
   }
 
   function hideGrace() {
@@ -386,6 +403,7 @@
     if (!planned) bloomId = act.id;
     openFollowup(saved.id, planned ? 'expect' : 'lift');
     VT.app.render();
+    requestAnimationFrame(() => VT.ui.reveal($('act-followup')));
     toast(planned ? `Up next · ${act.label}` : `Logged · ${act.label}`);
   }
 
@@ -402,17 +420,23 @@
         : 'How much did it help? (optional)' + (entry.expectLift != null ? ` You expected ${entry.expectLift}/5.` : '');
     VT.ui.buildRate($('act-rate'));
     $('act-followup-result').textContent = '';
-    $('act-note').value = '';
+    $('act-note').value = entry.note || ''; // a note added when it was planned stays
     const count = VT.store.logs().filter(VT.isDoneAct).length;
     VT.ui.verse($('act-verse'), ask === 'lift' ? VT.scripture.pick(VT.SCRIPTURE.goodAct, count) : null);
   }
 
+  function saveFollowNote() {
+    clearTimeout(noteTimer);
+    if (!actFollow) return;
+    const entry = VT.store.getLog(actFollow.id);
+    const note = $('act-note').value.trim();
+    if (entry && note !== (entry.note || '') && !VT.store.updateLog(entry.id, { note })) toast(VT.ui.SAVE_FAILED);
+  }
+
   function closeFollowup(saveNote = true) {
     clearTimeout(followTimer);
-    if (actFollow && saveNote) {
-      const note = $('act-note').value.trim();
-      if (note) VT.store.updateLog(actFollow.id, { note });
-    }
+    if (saveNote) saveFollowNote();
+    clearTimeout(noteTimer);
     actFollow = null;
     $('act-followup').classList.add('hidden');
   }
@@ -479,7 +503,7 @@
       if (!saved) return toast(VT.ui.SAVE_FAILED);
       openFollowup(saved.id, 'lift');
       VT.app.render();
-      $('act-followup').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      VT.ui.reveal($('act-followup'));
       toast(`Logged · ${saved.label}`);
     } else if (drop) {
       if (actFollow && actFollow.id === drop.dataset.id) closeFollowup(false);
@@ -562,7 +586,7 @@
       if (!saved) return toast(VT.ui.SAVE_FAILED);
       openFollowup(saved.id, 'lift');
       VT.app.render();
-      $('act-followup').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      VT.ui.reveal($('act-followup'));
       toast('You kept the plan.');
     } else if (del) {
       if (!VT.store.updateSettings({ plans: s.plans.filter((p) => p.id !== del.dataset.id) })) return toast(VT.ui.SAVE_FAILED);
@@ -579,8 +603,8 @@
     li.innerHTML =
       '<div class="flex gap-2"><input class="field text-sm" maxlength="60" aria-label="Good act" placeholder="e.g. Went for a walk" />' +
       '<button type="button" class="btn btn-ghost btn-sm shrink-0" data-remove>Remove</button></div>' +
-      '<p class="tag-label">Counts toward</p><div class="mt-1 flex flex-wrap gap-1.5" data-group="vt"></div>' +
-      '<p class="tag-label">Meets the need for</p><div class="mt-1 flex flex-wrap gap-1.5" data-group="nd"></div>';
+      '<p class="tag-label">Counts toward</p><div class="mt-1 flex flex-wrap gap-1.5" data-group="vt" role="group" aria-label="Counts toward"></div>' +
+      '<p class="tag-label">Meets the need for</p><div class="mt-1 flex flex-wrap gap-1.5" data-group="nd" role="group" aria-label="Meets the need for"></div>';
     li.querySelector('input').value = a.label;
     const vt = li.querySelector('[data-group="vt"]');
     VT.VIRTUES.forEach((v) => vt.appendChild(VT.ui.pill(v.name, { vt: v.id }, { pressed: a.virtues.includes(v.id), cls: 'pill-sm' })));
@@ -589,7 +613,13 @@
     return li;
   }
 
+  function actsError(msg) {
+    $('acts-error').textContent = msg;
+    $('acts-error').classList.toggle('hidden', !msg);
+  }
+
   function openActsEditor() {
+    actsError('');
     const list = $('acts-edit-list');
     list.innerHTML = '';
     settings().acts.forEach((a) => list.appendChild(actRow(a)));
@@ -609,8 +639,8 @@
     const acts = [...$('acts-edit-list').children]
       .map((li) => ({ id: li.dataset.id, label: li.querySelector('input').value.trim(), virtues: pressed(li, 'vt'), needs: pressed(li, 'nd') }))
       .filter((a) => a.label);
-    if (acts.length > VT.store.LIST_MAX) return toast(`Keep it to ${VT.store.LIST_MAX} good acts — remove a few before saving.`);
-    if (!VT.store.updateSettings({ acts })) return toast(VT.ui.SAVE_FAILED);
+    if (acts.length > VT.store.LIST_MAX) return actsError(`Keep it to ${VT.store.LIST_MAX} good acts — remove ${acts.length - VT.store.LIST_MAX} before saving.`);
+    if (!VT.store.updateSettings({ acts })) return actsError(VT.ui.SAVE_FAILED);
     VT.ui.closeDialog($('acts-dialog'));
     VT.app.render();
     renderAlts();
@@ -622,6 +652,8 @@
     current,
     resetUrge,
     showGrace,
+    // Save anything typed but not yet stored (the page is being hidden or closed).
+    flush: saveFollowNote,
     // An entry was deleted elsewhere: drop anything still pointing at it so a note typed there isn't silently lost.
     forget(id) {
       if (!id || (actFollow && actFollow.id === id)) closeFollowup(false);
@@ -641,6 +673,11 @@
         toggleUrge(false);
       });
       $('save-urge').addEventListener('click', onSaveUrge);
+      $('log-date').addEventListener('change', () => (dateTouched = true));
+      $('act-note').addEventListener('input', () => {
+        clearTimeout(noteTimer);
+        noteTimer = setTimeout(saveFollowNote, 600);
+      });
       $('stage-options').addEventListener('click', onStageClick);
       $('need-chips').addEventListener('click', onNeedClick);
       $('alt-chips').addEventListener('click', onAltClick);
@@ -668,6 +705,7 @@
     render(ctx) {
       const v = VT.virtueById(ctx.settings.lastVirtue);
       renderGreeting();
+      syncDate();
       renderSeg(ctx.settings);
       renderDoors();
       renderTrail(ctx);

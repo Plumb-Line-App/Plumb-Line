@@ -93,5 +93,30 @@
     },
 
     clampPct: (score) => (score == null ? 0 : Math.max(2, Math.min(98, score))),
+
+    reducedMotion: () => !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches),
+    // Bring an element into view (clear of the floating nav, via scroll-padding), gently unless motion is reduced.
+    reveal(el, block = 'nearest') {
+      if (el) el.scrollIntoView({ behavior: VT.ui.reducedMotion() ? 'auto' : 'smooth', block });
+    },
+    // Copy text; true if it worked. iOS needs a real selection range for the fallback.
+    async copy(text, field) {
+      try {
+        await navigator.clipboard.writeText(text);
+        return true;
+      } catch (e) {
+        if (!field) return false;
+        field.focus();
+        field.setSelectionRange(0, field.value.length);
+        let ok = false;
+        try {
+          ok = document.execCommand('copy');
+        } catch (err) {
+          ok = false;
+        }
+        field.blur();
+        return ok;
+      }
+    },
   };
 })();
