@@ -170,6 +170,28 @@ textarea.field { resize: vertical; }
 .foundation > summary::after { content: "+"; color: var(--stone-500); font-family: Inter, sans-serif; font-weight: 400; }
 .foundation[open] > summary::after { content: "\2013"; }
 .foundation-body { margin-top: 0.75rem; color: var(--stone-700); line-height: 1.65; font-size: 0.95rem; }
+
+/* The card's padding moves onto the title bar and body so an open section's title can pin
+   full-width to the top of the screen (below the desktop header) while you read. */
+.card.foundation { padding: 0; }
+.foundation > summary { padding: 1.25rem; border-radius: 1rem; background: #fff; }
+.foundation[open] > summary {
+  position: sticky; top: var(--sticky-top, 0px); z-index: 6;
+  border-radius: 1rem 1rem 0 0; border-bottom: 1px solid var(--stone-200);
+}
+.foundation > .foundation-body { margin-top: 0; padding: 1rem 1.25rem 1.25rem; }
+@media (min-width: 640px) {
+  .foundation > summary { padding: 1.5rem; }
+  .foundation > .foundation-body { padding: 1rem 1.5rem 1.5rem; }
+}
+.collapse-btn {
+  display: inline-flex; align-items: center; gap: 0.35rem;
+  font-size: 0.875rem; font-weight: 500; color: var(--sage-700);
+  border: 1px solid var(--stone-300); border-radius: 9999px; background: #fff; padding: 0.35rem 0.85rem;
+}
+.collapse-btn:hover { border-color: var(--stone-500); }
+.foundation-body > .collapse-btn { margin-top: 1.25rem; }
+.vice-body > .collapse-btn { margin-top: 0.75rem; font-size: 0.8125rem; padding: 0.25rem 0.7rem; }
 .foundation-body > * + * { margin-top: 0.75rem; }
 .foundation-body ul, .foundation-body ol { padding-left: 1.1rem; }
 .foundation-body ul { list-style: disc; }

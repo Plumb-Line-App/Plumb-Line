@@ -703,12 +703,63 @@
     toast('All logs cleared');
   }
 
+  // ---------- Why tab: reading sections ----------
+  // An open section keeps its title pinned while you read, ends with a close button, and closing it
+  // from anywhere brings you back to that section's title instead of leaving you further down the page.
+  const headerOffset = () => {
+    const header = document.querySelector('header');
+    return getComputedStyle(header).position === 'sticky' ? header.offsetHeight : 0;
+  };
+
+  // Height covered by pinned title bars above a section: the desktop header, plus an open parent section.
+  function pinnedAbove(details) {
+    let h = headerOffset();
+    const parent = details.parentElement.closest('details.foundation');
+    if (parent && parent.open) h += parent.querySelector(':scope > summary').offsetHeight;
+    return h;
+  }
+
+  function initReading() {
+    const sync = () => document.documentElement.style.setProperty('--sticky-top', `${headerOffset()}px`);
+    sync();
+    window.addEventListener('resize', sync);
+
+    document.querySelectorAll('#foundations details.foundation, #foundations details.vice').forEach((d) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'collapse-btn';
+      btn.innerHTML = `${d.classList.contains('vice') ? 'Close' : 'Close section'} <span aria-hidden="true">&uarr;</span>`;
+      btn.addEventListener('click', () => (d.open = false));
+      d.querySelector(':scope > .foundation-body, :scope > .vice-body').appendChild(btn);
+    });
+
+    // 'toggle' doesn't bubble, so listen in the capture phase.
+    $('foundations').addEventListener(
+      'toggle',
+      (e) => {
+        const d = e.target;
+        if (d.open || !(d.classList.contains('foundation') || d.classList.contains('vice'))) return;
+        const top = pinnedAbove(d);
+        const rect = d.getBoundingClientRect();
+        if (rect.top >= top) return;
+        // Jump, don't glide: the page-wide smooth scrolling would animate past the collapsed title.
+        const root = document.documentElement;
+        const prev = root.style.scrollBehavior;
+        root.style.scrollBehavior = 'auto';
+        window.scrollTo(0, window.scrollY + rect.top - top - 8);
+        root.style.scrollBehavior = prev;
+      },
+      true
+    );
+  }
+
   // ---------- Boot ----------
   function init() {
     VT.app = { render, celebrate, grace };
 
     // Static scripture placements (Honesty card, Why tab).
     document.querySelectorAll('figure[data-verse]').forEach((el) => VT.scripture.render(el, el.dataset.verse));
+    initReading();
     $('translation-note').textContent = `${VT.TRANSLATION.notice} Tap “Read in NIV” on any verse for the New International Version.`;
 
     VT.today.init();
