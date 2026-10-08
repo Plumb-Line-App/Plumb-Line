@@ -36,13 +36,60 @@
             <span class="text-xs text-stone-500">Stage ${s.id}</span>
           </span>
           <span class="block font-medium text-stone-800 mt-1"></span>
-          <span class="block text-xs text-stone-500 mt-1 leading-snug"></span>
+          <span class="hidden sm:block text-xs text-stone-500 mt-1 leading-snug"></span>
         </span>`;
-      const [name, desc] = label.querySelectorAll('.choice-body > span.block');
+      const [name, desc] = label.querySelectorAll('.choice-body > span:not(.flex)');
       name.textContent = s.name;
       desc.textContent = s.desc;
       wrap.appendChild(label);
     });
+  }
+
+  // ---------- Tabs ----------
+  const TABS = ['today', 'honesty', 'journey', 'weekly', 'why'];
+
+  function showTab(name, { scroll = true } = {}) {
+    if (!TABS.includes(name)) name = 'today';
+    document.body.dataset.tab = name;
+    document.querySelectorAll('[data-panel]').forEach((p) => (p.hidden = p.dataset.panel !== name));
+    document.querySelectorAll('[data-tab-link]').forEach((a) => {
+      const on = a.dataset.tabLink === name;
+      a.classList.toggle('is-active', on);
+      if (on) a.setAttribute('aria-current', 'page');
+      else a.removeAttribute('aria-current');
+    });
+    if (scroll) window.scrollTo(0, 0);
+    // Charts were laid out while hidden; size them now that they're visible.
+    if (name === 'journey' || name === 'honesty') requestAnimationFrame(() => VT.charts.resize());
+  }
+
+  const tabFromHash = () => location.hash.replace('#', '');
+
+  function onTabClick(e) {
+    const link = e.target.closest('[data-tab-link]');
+    // Tapping the tab you're already on scrolls back to the top, like a native tab bar.
+    if (link && link.dataset.tabLink === document.body.dataset.tab) {
+      e.preventDefault();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }
+
+  function renderSnapshot(s, h, due) {
+    $('snap-phase').textContent = s.phase;
+    $('snap-marker').style.left = `${s.score == null ? 0 : Math.max(2, Math.min(98, s.score))}%`;
+    $('snap-marker').style.opacity = s.score == null ? '0.35' : '1';
+    const bits = [`${s.count30} log${s.count30 === 1 ? '' : 's'} in 30 days`];
+    if (h.slips30) bits.push(`${h.shared30} of ${h.slips30} slips shared`);
+    if (due == null) bits.push('First weekly check-in whenever you\u2019re ready');
+    else if (due <= 0) bits.push('Weekly check-in ready');
+    $('snap-meta').textContent = bits.join(' \u00b7 ');
+  }
+
+  // A quiet dot on the Honesty tab while a window is open or a slip is still unshared.
+  function renderBadge(h) {
+    const now = Date.now();
+    const pending = VT.store.logs().some((l) => l.kind === 'slip' && !l.disclosed && l.windowEndsAt && now < l.windowEndsAt);
+    $('honesty-badge').classList.toggle('hidden', !(pending || h.unshared > 0));
   }
 
   // ---------- Spouse wording ----------
@@ -76,6 +123,8 @@
     VT.charts.updateFear(h.pairs);
     renderRecent(logs);
     renderDue(weeklies);
+    renderSnapshot(s, h, VT.insights.checkInDue(weeklies));
+    renderBadge(h);
     renderSpouse();
     renderMoment();
   }
@@ -282,7 +331,7 @@
   function celebrate(entry) {
     celebration = entry;
     render();
-    $('moment').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
   // ---------- Daily log ----------
@@ -310,6 +359,7 @@
     $('log-form').reset();
     $('log-date').value = VT.dates.today();
     $('stage-error').classList.add('hidden');
+    $('stage-desc').textContent = 'Tap the stage that fits best.';
     setSlider('slip-predicted', 5);
     setSlider('slip-actual', 5);
     syncLogForm();
@@ -338,7 +388,7 @@
         celebration = null;
         render();
         toast('Logged. You’re not in trouble, and you’re not alone.');
-        $('moment').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        window.scrollTo({ top: 0, behavior: 'smooth' });
       }
       return;
     }
@@ -522,7 +572,10 @@
     $('log-form').addEventListener('submit', onLogSubmit);
     $('log-form').addEventListener('change', (e) => {
       if (e.target.name === 'kind' || e.target.id === 'slip-disclosed') syncLogForm();
-      if (e.target.name === 'stage') $('stage-error').classList.add('hidden');
+      if (e.target.name === 'stage') {
+        $('stage-error').classList.add('hidden');
+        $('stage-desc').textContent = VT.stageById(e.target.value).desc;
+      }
     });
 
     $('moment-told').addEventListener('click', () => openDisclose($('moment').dataset.entry));
@@ -551,7 +604,11 @@
     // Timers are throttled in background tabs; re-sync the moment the page is visible again.
     document.addEventListener('visibilitychange', () => document.visibilityState === 'visible' && render());
 
+    window.addEventListener('hashchange', () => showTab(tabFromHash()));
+    document.addEventListener('click', onTabClick);
+
     VT.charts.init();
+    showTab(tabFromHash(), { scroll: false });
     render();
   }
 

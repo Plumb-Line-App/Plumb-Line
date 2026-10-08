@@ -137,6 +137,10 @@
       initFear(document.getElementById('fear-chart'));
     },
 
+    resize() {
+      [frictionChart, stageChart, fearChart].forEach((c) => c && c.resize());
+    },
+
     updateFear(pairs) {
       const has = pairs.length > 0;
       document.getElementById('fear-empty').classList.toggle('hidden', has);

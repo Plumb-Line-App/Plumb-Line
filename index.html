@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Virtue Tracker</title>
   <meta name="description" content="From Friction to Freedom — track the shift from willpower to second nature in your relationship with food." />
   <meta name="theme-color" content="#fafaf9" />
@@ -19,29 +19,29 @@
   <link rel="stylesheet" href="css/tailwind.css" />
   <link rel="stylesheet" href="css/styles.css" />
 </head>
-<body class="bg-stone-100 text-stone-700 font-sans antialiased">
+<body class="bg-stone-100 text-stone-700 font-sans antialiased" data-tab="today">
 
-  <!-- Header -->
-  <header class="border-b border-stone-200 bg-stone-50/80 backdrop-blur sticky top-0 z-20">
-    <div class="max-w-6xl mx-auto px-4 sm:px-6 py-2 sm:py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-4">
-      <div class="min-w-0 flex items-baseline gap-2 sm:block">
+  <!-- Header (tabs live here on desktop; phones use the bottom bar) -->
+  <header class="border-b border-stone-200 bg-stone-50/80 backdrop-blur lg:sticky lg:top-0 z-20">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-4">
+      <div class="min-w-0 flex items-baseline gap-2 lg:block">
         <h1 class="font-serif text-lg sm:text-xl font-semibold text-stone-800 leading-tight">Virtue Tracker</h1>
         <p class="text-xs sm:text-sm text-stone-500 truncate">From Friction to Freedom</p>
       </div>
-      <nav class="flex items-center gap-0.5 sm:gap-1 text-sm -mx-2.5 sm:mx-0 overflow-x-auto" aria-label="Sections">
-        <a href="#log" class="nav-link">Log</a>
-        <a href="#script" class="nav-link">Script</a>
-        <a href="#progress" class="nav-link">Progress</a>
-        <a href="#weekly" class="nav-link">Weekly</a>
-        <a href="#foundations" class="nav-link">Why</a>
+      <nav class="hidden lg:flex items-center gap-1" aria-label="Main">
+        <a href="#today" data-tab-link="today" class="toptab">Today</a>
+        <a href="#honesty" data-tab-link="honesty" class="toptab">Honesty</a>
+        <a href="#journey" data-tab-link="journey" class="toptab">Journey</a>
+        <a href="#weekly" data-tab-link="weekly" class="toptab">Weekly</a>
+        <a href="#why" data-tab-link="why" class="toptab">Why</a>
       </nav>
     </div>
   </header>
 
-  <main class="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+  <main class="max-w-6xl mx-auto px-4 sm:px-6 py-5 sm:py-8">
 
     <!-- Moment banner: honesty window (running / closed) or a double-victory celebration. -->
-    <section id="moment" class="moment hidden mb-6 scroll-mt-24" aria-live="polite">
+    <section id="moment" class="moment hidden mb-5 sm:mb-6 scroll-mt-24" aria-live="polite">
       <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
         <div class="min-w-0">
           <p id="moment-eyebrow" class="text-xs uppercase tracking-wide font-medium"></p>
@@ -56,20 +56,29 @@
       </div>
       <div class="mt-5 flex flex-wrap gap-2">
         <button type="button" id="moment-told" class="btn-primary"></button>
-        <a href="#script" id="moment-script" class="btn-ghost">Help me say it</a>
+        <a href="#honesty" id="moment-script" class="btn-ghost">Help me say it</a>
         <button type="button" id="moment-dismiss" class="btn-ghost"></button>
       </div>
     </section>
 
-    <!-- On mobile the two columns dissolve (display: contents) and `order` sets the flow.
-         On desktop: actions on the left, progress on the right. -->
-    <div class="flex flex-col gap-6 lg:grid lg:grid-cols-12 lg:items-start">
-
-      <!-- LEFT COLUMN -->
-      <div class="contents lg:flex lg:flex-col lg:gap-6 lg:col-span-5">
+    <!-- TODAY: log the moment -->
+    <div data-panel="today" class="panel">
+      <div class="max-w-2xl mx-auto space-y-5">
+        <!-- Journey snapshot: keeps the sense of the path on the home tab -->
+        <a href="#journey" id="snapshot" class="card block hover:border-stone-300 transition-colors">
+          <div class="flex items-baseline justify-between gap-3">
+            <p class="text-xs uppercase tracking-wide text-stone-500 font-medium">Where you are</p>
+            <span class="text-xs text-sage-700 font-medium">Your journey &rarr;</span>
+          </div>
+          <p id="snap-phase" class="font-serif text-xl text-stone-800 mt-1"></p>
+          <div class="mt-3 relative h-1.5 rounded-full bg-gradient-to-r from-mist-200 via-mist-300 to-sage-400">
+            <div id="snap-marker" class="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-3.5 h-3.5 rounded-full bg-white border-2 border-stone-600 shadow transition-all duration-500" style="left:0%"></div>
+          </div>
+          <p id="snap-meta" class="mt-3 text-xs text-stone-500"></p>
+        </a>
 
         <!-- Daily Reflection Log -->
-        <section id="log" class="card order-1 scroll-mt-24">
+        <section id="log" class="card">
           <div class="flex items-baseline justify-between gap-3">
             <h2 class="card-title">Daily Reflection</h2>
             <input type="date" id="log-date" class="text-sm text-stone-500 bg-transparent border-0 p-0 focus:ring-0 text-right" aria-label="Date of this reflection" />
@@ -100,7 +109,8 @@
             <!-- Urge path -->
             <fieldset id="urge-fields">
               <legend class="sr-only">Active stage</legend>
-              <div id="stage-options" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2 gap-2"></div>
+              <div id="stage-options" class="grid grid-cols-2 gap-2"></div>
+              <p id="stage-desc" class="sm:hidden mt-2 text-sm text-stone-500 leading-snug min-h-[2.5rem]">Tap the stage that fits best.</p>
               <p id="stage-error" class="hidden mt-2 text-sm text-mist-700">Pick whichever stage feels closest. There’s no wrong answer here.</p>
             </fieldset>
 
@@ -154,9 +164,14 @@
             <button type="submit" class="btn-primary w-full">Save Log</button>
           </form>
         </section>
+      </div>
+    </div>
 
+    <!-- HONESTY: say it, and see that it's safer than it feels -->
+    <div data-panel="honesty" class="panel" hidden>
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:items-start">
         <!-- Disclosure Script Generator -->
-        <section id="script" class="card order-2 scroll-mt-24">
+        <section id="script" class="card">
           <h2 class="card-title">Disclosure Script</h2>
           <p class="card-sub">The hardest part is the first sentence. Here’s one you can send as-is.</p>
 
@@ -210,8 +225,108 @@
           </div>
         </section>
 
+        <!-- Honesty: double victories + fear vs. reality -->
+        <section id="honesty-card" class="card">
+          <p class="text-xs uppercase tracking-wide text-stone-500 font-medium">Honesty</p>
+          <h2 class="font-serif text-2xl text-stone-800 mt-1">Double victories</h2>
+          <p id="honesty-message" class="mt-2 text-stone-600 leading-relaxed"></p>
+
+          <dl class="mt-5 grid grid-cols-3 gap-3 text-center">
+            <div class="stat"><dt class="stat-label">Slips · 30 days</dt><dd id="stat-slips" class="stat-value">0</dd></div>
+            <div class="stat"><dt class="stat-label">Shared</dt><dd id="stat-shared" class="stat-value">0</dd></div>
+            <div class="stat"><dt class="stat-label">Honesty streak</dt><dd id="stat-streak" class="stat-value">0</dd></div>
+          </dl>
+
+          <div class="mt-6">
+            <h3 class="card-title text-base">Fear vs. reality</h3>
+            <p class="card-sub">What you braced for vs. what actually happened · lower is gentler</p>
+            <div class="relative h-56 mt-3">
+              <canvas id="fear-chart" aria-label="Bar chart comparing predicted and actual fallout for each disclosure" role="img"></canvas>
+              <p id="fear-empty" class="empty-state">After your first disclosure, your prediction and the real outcome will sit side by side here.</p>
+            </div>
+            <p id="fear-summary" class="mt-3 text-sm text-stone-600 leading-relaxed"></p>
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <!-- JOURNEY: where the path is heading -->
+    <div data-panel="journey" class="panel" hidden>
+      <div class="space-y-6">
+        <!-- Insight widget -->
+        <section id="progress" class="card" aria-live="polite">
+          <p class="text-xs uppercase tracking-wide text-stone-500 font-medium">Virtue Stage Insight</p>
+          <h2 id="insight-phase" class="font-serif text-2xl text-stone-800 mt-1"></h2>
+          <p id="insight-message" class="mt-2 text-stone-600 leading-relaxed"></p>
+
+          <!-- Phase continuum: Kant → Aristotle -->
+          <div class="mt-5">
+            <div class="relative h-2 rounded-full bg-gradient-to-r from-mist-200 via-mist-300 to-sage-400">
+              <div id="phase-marker" class="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-4 h-4 rounded-full bg-white border-2 border-stone-600 shadow transition-all duration-500" style="left: 0%"></div>
+            </div>
+            <div class="flex justify-between text-xs text-stone-500 mt-2">
+              <span>Kantian · duty &amp; effort</span>
+              <span>Aristotelian · second nature</span>
+            </div>
+          </div>
+
+          <dl class="mt-5 grid grid-cols-3 gap-3 text-center">
+            <div class="stat"><dt class="stat-label">Logs · 30 days</dt><dd id="stat-count" class="stat-value">0</dd></div>
+            <div class="stat"><dt class="stat-label">Avg stage</dt><dd id="stat-avg" class="stat-value">—</dd></div>
+            <div class="stat"><dt class="stat-label">Last friction</dt><dd id="stat-friction" class="stat-value">—</dd></div>
+          </dl>
+        </section>
+
+        <!-- Charts -->
+        <section class=" grid grid-cols-1 md:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2 gap-6">
+          <div class="card">
+            <h3 class="card-title text-base">Friction over time</h3>
+            <p class="card-sub">Weekly check-ins · lower is calmer</p>
+            <div class="relative h-56 mt-3">
+              <canvas id="friction-chart" aria-label="Line chart of weekly friction scores" role="img"></canvas>
+              <p id="friction-empty" class="empty-state">Complete a weekly check-in to start your trend line.</p>
+            </div>
+          </div>
+          <div class="card">
+            <h3 class="card-title text-base">Last 30 days</h3>
+            <p class="card-sub">How urges were met</p>
+            <div class="relative h-56 mt-3">
+              <canvas id="stage-chart" aria-label="Donut chart of logged stages and slips in the last 30 days" role="img"></canvas>
+              <p id="stage-empty" class="empty-state">Your first daily log will appear here.</p>
+            </div>
+          </div>
+        </section>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:items-start">
+          <div class="lg:col-span-2">
+            <!-- Recent entries -->
+            <section class="card">
+              <div class="flex items-baseline justify-between">
+                <h3 class="card-title text-base">Recent reflections</h3>
+                <span id="recent-count" class="text-xs text-stone-500"></span>
+              </div>
+              <ul id="recent-list" class="mt-3 divide-y divide-stone-200"></ul>
+              <p id="recent-empty" class="text-sm text-stone-500 mt-3">Nothing logged yet. Every honest entry counts — including the hard ones.</p>
+            </section>
+          </div>
+          <section class="card">
+            <h3 class="card-title text-base">Your data</h3>
+            <p class="card-sub">Stored only on this device. Export now and then to keep a backup.</p>
+            <div class="mt-3 flex flex-wrap gap-2">
+              <button type="button" id="export-btn" class="btn-ghost">Export</button>
+              <label class="btn-ghost cursor-pointer">Import<input type="file" id="import-input" accept="application/json,.json" class="sr-only" /></label>
+              <button type="button" id="reset-btn" class="btn-ghost">Clear all data</button>
+            </div>
+          </section>
+        </div>
+      </div>
+    </div>
+
+    <!-- WEEKLY: step back -->
+    <div data-panel="weekly" class="panel" hidden>
+      <div class="max-w-2xl mx-auto">
         <!-- Weekly Check-In -->
-        <section id="weekly" class="card order-6 scroll-mt-24">
+        <section id="weekly-card" class="card">
           <div class="flex items-baseline justify-between gap-3">
             <h2 class="card-title">Weekly Check-In</h2>
             <span id="weekly-due" class="text-xs text-stone-500"></span>
@@ -284,195 +399,132 @@
           </div>
         </section>
       </div>
-
-      <!-- RIGHT COLUMN -->
-      <div class="contents lg:flex lg:flex-col lg:gap-6 lg:col-span-7">
-
-        <!-- Insight widget -->
-        <section id="progress" class="card order-3 scroll-mt-24" aria-live="polite">
-          <p class="text-xs uppercase tracking-wide text-stone-500 font-medium">Virtue Stage Insight</p>
-          <h2 id="insight-phase" class="font-serif text-2xl text-stone-800 mt-1"></h2>
-          <p id="insight-message" class="mt-2 text-stone-600 leading-relaxed"></p>
-
-          <!-- Phase continuum: Kant → Aristotle -->
-          <div class="mt-5">
-            <div class="relative h-2 rounded-full bg-gradient-to-r from-mist-200 via-mist-300 to-sage-400">
-              <div id="phase-marker" class="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-4 h-4 rounded-full bg-white border-2 border-stone-600 shadow transition-all duration-500" style="left: 0%"></div>
-            </div>
-            <div class="flex justify-between text-xs text-stone-500 mt-2">
-              <span>Kantian · duty &amp; effort</span>
-              <span>Aristotelian · second nature</span>
-            </div>
-          </div>
-
-          <dl class="mt-5 grid grid-cols-3 gap-3 text-center">
-            <div class="stat"><dt class="stat-label">Logs · 30 days</dt><dd id="stat-count" class="stat-value">0</dd></div>
-            <div class="stat"><dt class="stat-label">Avg stage</dt><dd id="stat-avg" class="stat-value">—</dd></div>
-            <div class="stat"><dt class="stat-label">Last friction</dt><dd id="stat-friction" class="stat-value">—</dd></div>
-          </dl>
-        </section>
-
-        <!-- Honesty: double victories + fear vs. reality -->
-        <section id="honesty" class="card order-4">
-          <p class="text-xs uppercase tracking-wide text-stone-500 font-medium">Honesty</p>
-          <h2 class="font-serif text-2xl text-stone-800 mt-1">Double victories</h2>
-          <p id="honesty-message" class="mt-2 text-stone-600 leading-relaxed"></p>
-
-          <dl class="mt-5 grid grid-cols-3 gap-3 text-center">
-            <div class="stat"><dt class="stat-label">Slips · 30 days</dt><dd id="stat-slips" class="stat-value">0</dd></div>
-            <div class="stat"><dt class="stat-label">Shared</dt><dd id="stat-shared" class="stat-value">0</dd></div>
-            <div class="stat"><dt class="stat-label">Honesty streak</dt><dd id="stat-streak" class="stat-value">0</dd></div>
-          </dl>
-
-          <div class="mt-6">
-            <h3 class="card-title text-base">Fear vs. reality</h3>
-            <p class="card-sub">What you braced for vs. what actually happened · lower is gentler</p>
-            <div class="relative h-56 mt-3">
-              <canvas id="fear-chart" aria-label="Bar chart comparing predicted and actual fallout for each disclosure" role="img"></canvas>
-              <p id="fear-empty" class="empty-state">After your first disclosure, your prediction and the real outcome will sit side by side here.</p>
-            </div>
-            <p id="fear-summary" class="mt-3 text-sm text-stone-600 leading-relaxed"></p>
-          </div>
-        </section>
-
-        <!-- Charts -->
-        <section class="order-5 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2 gap-6">
-          <div class="card">
-            <h3 class="card-title text-base">Friction over time</h3>
-            <p class="card-sub">Weekly check-ins · lower is calmer</p>
-            <div class="relative h-56 mt-3">
-              <canvas id="friction-chart" aria-label="Line chart of weekly friction scores" role="img"></canvas>
-              <p id="friction-empty" class="empty-state">Complete a weekly check-in to start your trend line.</p>
-            </div>
-          </div>
-          <div class="card">
-            <h3 class="card-title text-base">Last 30 days</h3>
-            <p class="card-sub">How urges were met</p>
-            <div class="relative h-56 mt-3">
-              <canvas id="stage-chart" aria-label="Donut chart of logged stages and slips in the last 30 days" role="img"></canvas>
-              <p id="stage-empty" class="empty-state">Your first daily log will appear here.</p>
-            </div>
-          </div>
-        </section>
-
-        <!-- Recent entries -->
-        <section class="card order-7">
-          <div class="flex items-baseline justify-between">
-            <h3 class="card-title text-base">Recent reflections</h3>
-            <span id="recent-count" class="text-xs text-stone-500"></span>
-          </div>
-          <ul id="recent-list" class="mt-3 divide-y divide-stone-200"></ul>
-          <p id="recent-empty" class="text-sm text-stone-500 mt-3">Nothing logged yet. Every honest entry counts — including the hard ones.</p>
-        </section>
-      </div>
     </div>
 
-    <!-- Foundations: the ideas the app is built on -->
-    <section id="foundations" class="mt-10 scroll-mt-24">
-      <p class="text-xs uppercase tracking-wide text-stone-500 font-medium">Foundations</p>
-      <h2 class="font-serif text-2xl sm:text-3xl text-stone-800 mt-1">Why the fight is supposed to get easier</h2>
-      <p class="mt-2 text-stone-600 leading-relaxed max-w-3xl">
-        Effort is involved in both holding back and reaching forward — but they are different kinds of effort.
-        Philosophy and psychology land in the same place: white-knuckled restriction is a stage you pass through, not where you’re meant to live.
-      </p>
+    <!-- WHY: the ideas underneath -->
+    <div data-panel="why" class="panel" hidden>
+      <!-- Foundations: the ideas the app is built on -->
+      <section id="foundations">
+        <p class="text-xs uppercase tracking-wide text-stone-500 font-medium">Foundations</p>
+        <h2 class="font-serif text-2xl sm:text-3xl text-stone-800 mt-1">Why the fight is supposed to get easier</h2>
+        <p class="mt-2 text-stone-600 leading-relaxed max-w-3xl">
+          Effort is involved in both holding back and reaching forward — but they are different kinds of effort.
+          Philosophy and psychology land in the same place: white-knuckled restriction is a stage you pass through, not where you’re meant to live.
+        </p>
 
-      <div class="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <details class="card foundation" open>
-          <summary>The Kantian view — duty and active resistance</summary>
-          <div class="foundation-body">
-            <p>Immanuel Kant held that an action has moral worth when it is done <em>from duty</em> — because it is right — rather than from inclination.
-              His sharpest example is the person who wants to do wrong and refrains purely because it is wrong: there, the motive is unmistakably duty.</p>
-            <ul>
-              <li><strong>The effort of restriction.</strong> Choosing right against a strong pull shows that duty, not desire, is steering.</li>
-              <li><strong>The paradox.</strong> Read this way, the person who struggles hard and still holds the line is displaying real moral strength.</li>
-            </ul>
-            <p class="foundation-note">Worth knowing: for Kant the worth comes from the <em>motive</em>, not the struggle itself, and he also urged cultivating virtue so that duty grows easier over time. The struggle is evidence of duty, not the goal.</p>
-          </div>
-        </details>
+        <div class="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-4">
 
-        <details class="card foundation" open>
-          <summary>The Aristotelian view — virtue and harmony</summary>
-          <div class="foundation-body">
-            <p>Aristotle argued that the goal is a character in which doing right becomes second nature. Virtue is built by practice — “we become just by doing just acts” — until reason and desire agree.</p>
-            <ul>
-              <li><strong>The continent person (high effort).</strong> Has the wrong desires but uses willpower to do what’s right. Good, but not yet fully virtuous.</li>
-              <li><strong>The temperate person (low effort).</strong> Desires are in harmony with reason. There’s no fight, because the wrong thing isn’t wanted.</li>
-              <li><strong>The takeaway.</strong> Needing heavy restraint means character is still a work in progress — which is normal, and fixable through repetition.</li>
-            </ul>
-          </div>
-        </details>
-
-        <details class="card foundation">
-          <summary>Negative vs. positive duties</summary>
-          <div class="foundation-body">
-            <ul>
-              <li><strong>Negative duties — “not doing wrong.”</strong> Prohibitions (don’t lie, don’t steal). Treated as strict: you comply always, with whatever inhibitory effort it takes.</li>
-              <li><strong>Positive duties — “doing right.”</strong> Prescriptions to do good (be kind, help others). Usually <em>imperfect</em> duties: you choose when, how and how much. You’re praised for doing them more than blamed for resting.</li>
-            </ul>
-            <p>The weekly “Energy focus” question asks which of these your week ran on.</p>
-          </div>
-        </details>
-
-        <details class="card foundation">
-          <summary>Wu-wei — effortless action</summary>
-          <div class="foundation-body">
-            <p>In Daoism, <em>wu-wei</em> (“non-forcing”) holds that constantly fighting impulses is an exhausting way to live. Rather than spending energy on not being bad, align with the natural flow of right action. Practiced harmony dissolves the wrong desire instead of suppressing it — the same idea psychology calls crowding out.</p>
-          </div>
-        </details>
-
-        <details class="card foundation lg:col-span-2">
-          <summary>What psychology says about effort</summary>
-          <div class="foundation-body">
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div class="rounded-xl bg-mist-50 border border-mist-200 p-4">
-                <p class="font-medium text-stone-800">Restricting — inhibitory effort</p>
-                <p class="text-xs text-stone-500 mt-0.5">Stopping a force · prefrontal inhibitory control</p>
-                <ul>
-                  <li><strong>Resisting temptation.</strong> The brain has to override an impulse, habit or desire that’s already in motion.</li>
-                  <li><strong>Constant vigilance.</strong> Suppression needs ongoing monitoring, and it feels draining over time.</li>
-                  <li><strong>“Don’t think of an elephant.”</strong> Trying not to think about something keeps it in focus; pushing the thought away costs extra energy.</li>
-                  <li><strong>How it feels.</strong> High friction; often like sacrifice or deprivation.</li>
-                </ul>
-              </div>
-              <div class="rounded-xl bg-sage-50 border border-sage-200 p-4">
-                <p class="font-medium text-stone-800">Doing right — initiation effort</p>
-                <p class="text-xs text-stone-500 mt-0.5">Starting a force · goal-directed action</p>
-                <ul>
-                  <li><strong>Momentum.</strong> Starting takes effort, but once begun, a good action tends to carry itself.</li>
-                  <li><strong>Reward.</strong> Progress toward a goal is reinforcing, which tends to make the work feel lighter.</li>
-                  <li><strong>Crowding out.</strong> Attention spent on doing right leaves less bandwidth for the wrong thing — often bypassing the need for heavy self-control.</li>
-                  <li><strong>How it feels.</strong> Constructive; often rewarding or fulfilling.</li>
-                </ul>
-              </div>
+          <details class="card foundation lg:col-span-2" open>
+            <summary>The synthesis — the path this app tracks</summary>
+            <div class="foundation-body">
+              <ol>
+                <li><strong>The Kantian phase (high effort).</strong> Breaking an old pattern starts with deliberate restraint. It’s exhausting, and it’s necessary. Stages 1–2.</li>
+                <li><strong>The Aristotelian phase (low effort).</strong> With repetition, the restraint becomes habit, the habit becomes character, and what once took everything eventually takes very little. Stages 3–4.</li>
+              </ol>
+              <p>Honesty follows the same arc. Telling the truth after a slip is hard, deliberate work at first. Practiced enough, it becomes simply who you are.</p>
             </div>
-            <p class="mt-4">The picture: doing right is steering a car forward on a track. Restricting wrong is standing on the brakes to keep it from rolling downhill.</p>
-            <p class="foundation-note">Worth knowing: the popular “ego depletion” idea — that willpower is a tank that runs dry — has not held up well in large replication studies. What is well supported is that suppression feels effortful, habits reduce the need for deliberate control, and people who seem high in self-control mostly avoid temptations rather than winning more fights.</p>
-          </div>
-        </details>
+          </details>
+          <details class="card foundation">
+            <summary>The Kantian view — duty and active resistance</summary>
+            <div class="foundation-body">
+              <p>Immanuel Kant held that an action has moral worth when it is done <em>from duty</em> — because it is right — rather than from inclination.
+                His sharpest example is the person who wants to do wrong and refrains purely because it is wrong: there, the motive is unmistakably duty.</p>
+              <ul>
+                <li><strong>The effort of restriction.</strong> Choosing right against a strong pull shows that duty, not desire, is steering.</li>
+                <li><strong>The paradox.</strong> Read this way, the person who struggles hard and still holds the line is displaying real moral strength.</li>
+              </ul>
+              <p class="foundation-note">Worth knowing: for Kant the worth comes from the <em>motive</em>, not the struggle itself, and he also urged cultivating virtue so that duty grows easier over time. The struggle is evidence of duty, not the goal.</p>
+            </div>
+          </details>
 
-        <details class="card foundation lg:col-span-2" open>
-          <summary>The synthesis — the path this app tracks</summary>
-          <div class="foundation-body">
-            <ol>
-              <li><strong>The Kantian phase (high effort).</strong> Breaking an old pattern starts with deliberate restraint. It’s exhausting, and it’s necessary. Stages 1–2.</li>
-              <li><strong>The Aristotelian phase (low effort).</strong> With repetition, the restraint becomes habit, the habit becomes character, and what once took everything eventually takes very little. Stages 3–4.</li>
-            </ol>
-            <p>Honesty follows the same arc. Telling the truth after a slip is hard, deliberate work at first. Practiced enough, it becomes simply who you are.</p>
-          </div>
-        </details>
-      </div>
-    </section>
+          <details class="card foundation">
+            <summary>The Aristotelian view — virtue and harmony</summary>
+            <div class="foundation-body">
+              <p>Aristotle argued that the goal is a character in which doing right becomes second nature. Virtue is built by practice — “we become just by doing just acts” — until reason and desire agree.</p>
+              <ul>
+                <li><strong>The continent person (high effort).</strong> Has the wrong desires but uses willpower to do what’s right. Good, but not yet fully virtuous.</li>
+                <li><strong>The temperate person (low effort).</strong> Desires are in harmony with reason. There’s no fight, because the wrong thing isn’t wanted.</li>
+                <li><strong>The takeaway.</strong> Needing heavy restraint means character is still a work in progress — which is normal, and fixable through repetition.</li>
+              </ul>
+            </div>
+          </details>
 
-    <!-- Data controls -->
-    <footer class="mt-10 pt-6 border-t border-stone-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-sm text-stone-500">
-      <p>Stored only in this browser. Export now and then to keep a backup.</p>
-      <div class="flex flex-wrap gap-2">
-        <button type="button" id="export-btn" class="btn-ghost">Export</button>
-        <label class="btn-ghost cursor-pointer">Import<input type="file" id="import-input" accept="application/json,.json" class="sr-only" /></label>
-        <button type="button" id="reset-btn" class="btn-ghost">Clear all data</button>
-      </div>
-    </footer>
+          <details class="card foundation">
+            <summary>Negative vs. positive duties</summary>
+            <div class="foundation-body">
+              <ul>
+                <li><strong>Negative duties — “not doing wrong.”</strong> Prohibitions (don’t lie, don’t steal). Treated as strict: you comply always, with whatever inhibitory effort it takes.</li>
+                <li><strong>Positive duties — “doing right.”</strong> Prescriptions to do good (be kind, help others). Usually <em>imperfect</em> duties: you choose when, how and how much. You’re praised for doing them more than blamed for resting.</li>
+              </ul>
+              <p>The weekly “Energy focus” question asks which of these your week ran on.</p>
+            </div>
+          </details>
+
+          <details class="card foundation">
+            <summary>Wu-wei — effortless action</summary>
+            <div class="foundation-body">
+              <p>In Daoism, <em>wu-wei</em> (“non-forcing”) holds that constantly fighting impulses is an exhausting way to live. Rather than spending energy on not being bad, align with the natural flow of right action. Practiced harmony dissolves the wrong desire instead of suppressing it — the same idea psychology calls crowding out.</p>
+            </div>
+          </details>
+
+          <details class="card foundation lg:col-span-2">
+            <summary>What psychology says about effort</summary>
+            <div class="foundation-body">
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="rounded-xl bg-mist-50 border border-mist-200 p-4">
+                  <p class="font-medium text-stone-800">Restricting — inhibitory effort</p>
+                  <p class="text-xs text-stone-500 mt-0.5">Stopping a force · prefrontal inhibitory control</p>
+                  <ul>
+                    <li><strong>Resisting temptation.</strong> The brain has to override an impulse, habit or desire that’s already in motion.</li>
+                    <li><strong>Constant vigilance.</strong> Suppression needs ongoing monitoring, and it feels draining over time.</li>
+                    <li><strong>“Don’t think of an elephant.”</strong> Trying not to think about something keeps it in focus; pushing the thought away costs extra energy.</li>
+                    <li><strong>How it feels.</strong> High friction; often like sacrifice or deprivation.</li>
+                  </ul>
+                </div>
+                <div class="rounded-xl bg-sage-50 border border-sage-200 p-4">
+                  <p class="font-medium text-stone-800">Doing right — initiation effort</p>
+                  <p class="text-xs text-stone-500 mt-0.5">Starting a force · goal-directed action</p>
+                  <ul>
+                    <li><strong>Momentum.</strong> Starting takes effort, but once begun, a good action tends to carry itself.</li>
+                    <li><strong>Reward.</strong> Progress toward a goal is reinforcing, which tends to make the work feel lighter.</li>
+                    <li><strong>Crowding out.</strong> Attention spent on doing right leaves less bandwidth for the wrong thing — often bypassing the need for heavy self-control.</li>
+                    <li><strong>How it feels.</strong> Constructive; often rewarding or fulfilling.</li>
+                  </ul>
+                </div>
+              </div>
+              <p class="mt-4">The picture: doing right is steering a car forward on a track. Restricting wrong is standing on the brakes to keep it from rolling downhill.</p>
+              <p class="foundation-note">Worth knowing: the popular “ego depletion” idea — that willpower is a tank that runs dry — has not held up well in large replication studies. What is well supported is that suppression feels effortful, habits reduce the need for deliberate control, and people who seem high in self-control mostly avoid temptations rather than winning more fights.</p>
+            </div>
+          </details>
+        </div>
+      </section>
+    </div>
   </main>
+
+  <!-- Bottom tab bar (phones / tablets) -->
+  <nav class="tabbar lg:hidden" aria-label="Main">
+    <a href="#today" data-tab-link="today" class="tab">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+      <span>Today</span>
+    </a>
+    <a href="#honesty" data-tab-link="honesty" class="tab">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/><path d="M12 15.5s-3.5-2-3.5-4.25A1.75 1.75 0 0 1 12 10a1.75 1.75 0 0 1 3.5 1.25C15.5 13.5 12 15.5 12 15.5Z"/></svg>
+      <span>Honesty</span><i id="honesty-badge" class="tab-badge hidden" aria-hidden="true"></i>
+    </a>
+    <a href="#journey" data-tab-link="journey" class="tab">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/></svg>
+      <span>Journey</span>
+    </a>
+    <a href="#weekly" data-tab-link="weekly" class="tab">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/><path d="m9 16 2 2 4-4"/></svg>
+      <span>Weekly</span>
+    </a>
+    <a href="#why" data-tab-link="why" class="tab">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+      <span>Why</span>
+    </a>
+  </nav>
+
 
   <!-- Record a disclosure made after logging -->
   <dialog id="disclose-dialog" class="dialog" aria-labelledby="dlg-title">

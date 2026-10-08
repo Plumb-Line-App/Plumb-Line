@@ -13,6 +13,10 @@ Live: https://dmvanblaircom.github.io/Virtue-Tracker/ (served from the `gh-pages
 
 When shipping changes, bump `VERSION` in `sw.js` so installed copies pick them up.
 
+## Layout
+
+Five tabs (bottom bar on phones, top tabs on desktop): **Today** (log + where you are), **Honesty** (script, double victories, fear vs. reality), **Journey** (insight, charts, history, data), **Weekly**, **Why** (foundations). Tabs are hash routes (`#today`, `#honesty`, …) so the back button works.
+
 ## Features
 
 - **Daily Reflection** — pick a stage on the 4-Stage Scale, add a context note, save.
