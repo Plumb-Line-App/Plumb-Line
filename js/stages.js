@@ -37,6 +37,32 @@ VT.stageById = (id) => VT.STAGES.find((s) => s.id === Number(id));
 // Slips sit outside the stage scale; warm gray keeps them visible without an alarm colour.
 VT.SLIP = { name: 'Slip', short: 'Slip', color: '#c8bcae' };
 
+// Good acts: the "doing right" side. Warm amber, distinct from the stage ramp and the slip gray.
+VT.ACT = { name: 'Good act', short: 'Good act', color: '#b8842c' };
+VT.FIGHT_COLOR = '#3d7fb0'; // urges & slips in the crowding-out chart (validated pair with VT.ACT.color)
+
+// What an urge is usually really about. Good acts are tagged with the needs they meet.
+VT.NEEDS = [
+  { id: 'rest', name: 'Rest', hint: 'worn out' },
+  { id: 'comfort', name: 'Comfort', hint: 'hurting or heavy' },
+  { id: 'connection', name: 'Connection', hint: 'lonely or unseen' },
+  { id: 'stimulation', name: 'Stimulation', hint: 'bored or restless' },
+  { id: 'reward', name: 'Reward', hint: 'wanting a treat' },
+];
+VT.needById = (id) => VT.NEEDS.find((n) => n.id === id) || null;
+
+VT.DEFAULT_ACTS = [
+  { id: 'workout', label: 'Worked out', needs: ['stimulation', 'reward'] },
+  { id: 'walk', label: 'Went for a walk', needs: ['rest', 'comfort', 'stimulation'] },
+  { id: 'meal', label: 'Cooked a real meal', needs: ['comfort', 'reward'] },
+  { id: 'load', label: 'Took something off her plate', needs: ['connection'] },
+  { id: 'kids', label: 'Played with the kids', needs: ['connection', 'stimulation'] },
+  { id: 'prayer', label: 'Prayed / read scripture', needs: ['comfort', 'rest'] },
+  { id: 'friend', label: 'Called a friend', needs: ['connection'] },
+  { id: 'quiet', label: 'Took 10 quiet minutes', needs: ['rest', 'comfort'] },
+  { id: 'bed', label: 'In bed on time', needs: ['rest'] },
+];
+
 VT.HONESTY_WINDOW_MS = 15 * 60 * 1000;
 
 // Spouse wording. Uses the saved name when there is one.
