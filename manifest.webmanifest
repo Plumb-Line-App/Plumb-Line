@@ -1,0 +1,15 @@
+{
+  "name": "Virtue Tracker: From Friction to Freedom",
+  "short_name": "Virtue",
+  "description": "Track the shift from willpower to second nature in your relationship with food.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f5f5f4",
+  "theme_color": "#fafaf9",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
