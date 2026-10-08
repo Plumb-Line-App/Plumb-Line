@@ -13,6 +13,7 @@
     plans: [],
     activeVirtues: [...VT.VIRTUE_IDS],
     lastVirtue: VT.VIRTUE_IDS[0],
+    theme: 'auto', // 'auto' follows the phone; 'light' / 'dark' override it
   });
   const empty = () => ({ version: 3, logs: [], weeklies: [], settings: defaultSettings() });
 
@@ -160,6 +161,7 @@
     const active = virtueIds(s.activeVirtues);
     out.activeVirtues = active.length ? active : [...VT.VIRTUE_IDS];
     out.lastVirtue = out.activeVirtues.includes(s.lastVirtue) ? s.lastVirtue : out.activeVirtues[0];
+    out.theme = ['light', 'dark'].includes(s.theme) ? s.theme : 'auto';
     return out;
   }
 

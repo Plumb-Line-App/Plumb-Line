@@ -1,14 +1,17 @@
-// Today tab: pick a virtue, log good acts (with "did it help?"), keep if-then plans,
-// and log pulls or slips with the need underneath and the repair that follows.
+// Today tab: pick a virtue, meet an urge (stage, need, a better choice), tap a slip straight into the
+// Honest Script, log good acts with "did it help?", and keep if-then plans.
 (function () {
   const { $, toast } = VT.ui;
 
   // Form state that must survive re-renders.
+  let stageSel = null;
   let needSel = null;
   let altSel = null;
   let altLift = null;
   let actFollow = null; // { id, ask: 'lift' | 'expect' }
   let followTimer = null;
+  let graceId = null;
+  let bloomId = null;
 
   const PLAN_EXAMPLES = {
     temperance: 'e.g. When I get home after a hard day → I change clothes and walk for 10 minutes.',
@@ -19,41 +22,123 @@
   const settings = () => VT.store.settings();
   const currentId = () => VT.store.setting('lastVirtue');
   const current = () => VT.virtueById(currentId());
-  const kind = () => document.querySelector('input[name="kind"]:checked').value;
+
+  // ---------- Header ----------
+  function renderGreeting() {
+    const d = new Date();
+    const hr = d.getHours();
+    $('today-date').textContent = `${d.toLocaleDateString(undefined, { weekday: 'long' })} · ${d.toLocaleDateString(undefined, { month: 'long', day: 'numeric' })}`;
+    $('greeting').textContent = hr < 12 ? 'Good morning.' : hr < 17 ? 'Good afternoon.' : 'Good evening.';
+  }
 
   // ---------- Virtue selection ----------
   function selectVirtue(id) {
     if (id === currentId()) return;
-    VT.store.updateSettings({ lastVirtue: id });
+    if (!VT.store.updateSettings({ lastVirtue: id })) return toast(VT.ui.SAVE_FAILED);
     closeFollowup(true);
-    resetLogForm();
+    resetUrge();
+    hideGrace();
     VT.app.render();
   }
 
-  function renderRows(ctx) {
-    const wrap = $('virtue-rows');
-    wrap.innerHTML = '';
-    // The overall summary already measured each active virtue; reuse it instead of re-measuring.
-    ctx.overall.perVirtue.forEach((sum) => {
-      const id = sum.id;
+  function renderSeg(s) {
+    const seg = $('virtue-seg');
+    seg.innerHTML = '';
+    s.activeVirtues.forEach((id) => {
       const v = VT.virtueById(id);
       const b = document.createElement('button');
       b.type = 'button';
-      b.className = 'vrow';
       b.dataset.virtue = id;
-      b.setAttribute('role', 'radio');
-      b.setAttribute('aria-checked', String(id === ctx.settings.lastVirtue));
-      b.innerHTML =
-        '<span class="vrow-top"><span class="vdot"></span><span class="vname"></span><span class="varea"></span><span class="vphase"></span></span>' +
-        '<span class="vtrack"><span class="vmarker"></span></span>';
-      b.querySelector('.vdot').style.background = v.color;
-      b.querySelector('.vname').textContent = v.name;
-      b.querySelector('.varea').textContent = v.area;
-      b.querySelector('.vphase').textContent = sum.phase;
-      const m = b.querySelector('.vmarker');
-      m.style.left = `${VT.ui.clampPct(sum.score)}%`;
-      m.style.opacity = sum.score == null ? '0.35' : '1';
-      wrap.appendChild(b);
+      b.setAttribute('aria-pressed', String(id === s.lastVirtue));
+      b.innerHTML = '<span class="vdot"></span><span></span>';
+      b.firstChild.style.background = v.color;
+      b.lastChild.textContent = v.name;
+      seg.appendChild(b);
+    });
+  }
+
+  function renderDoors() {
+    const v = current();
+    $('urge-hint').textContent = v.urgeDoor;
+    $('slip-label').textContent = v.slipDoor;
+    $('slip-hint').textContent = v.slipDoorHint;
+  }
+
+  // ---------- Where you are: the trail ----------
+  // The trail is three cubic curves; sample it once so markers can be placed by score without layout APIs.
+  const TRAIL_D = 'M18,112 C72,110 98,88 144,84 C190,80 224,70 254,54 C284,38 302,36 320,32';
+  const TRAIL = (() => {
+    const segs = [
+      [[18, 112], [72, 110], [98, 88], [144, 84]],
+      [[144, 84], [190, 80], [224, 70], [254, 54]],
+      [[254, 54], [284, 38], [302, 36], [320, 32]],
+    ];
+    const bez = (p, t) => {
+      const u = 1 - t;
+      return [0, 1].map((k) => u * u * u * p[0][k] + 3 * u * u * t * p[1][k] + 3 * u * t * t * p[2][k] + t * t * t * p[3][k]);
+    };
+    const pts = [];
+    segs.forEach((p, si) => {
+      for (let i = si ? 1 : 0; i <= 60; i++) pts.push(bez(p, i / 60));
+    });
+    const len = [0];
+    for (let i = 1; i < pts.length; i++) len.push(len[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
+    const total = len[len.length - 1];
+    return (pct) => {
+      const target = (total * Math.max(0, Math.min(100, pct))) / 100;
+      let i = len.findIndex((l) => l >= target);
+      if (i <= 0) return pts[0];
+      const f = (target - len[i - 1]) / (len[i] - len[i - 1] || 1);
+      return [pts[i - 1][0] + f * (pts[i][0] - pts[i - 1][0]), pts[i - 1][1] + f * (pts[i][1] - pts[i - 1][1])];
+    };
+  })();
+
+  function renderTrail(ctx) {
+    const W = 340;
+    const H = 132;
+    const sel = ctx.settings.lastVirtue;
+    const stars = [[40, 22], [92, 14], [150, 30], [210, 12], [262, 24], [120, 46], [180, 40]]
+      .map(([x, y], i) => `<circle cx="${x}" cy="${y}" r="${i % 3 ? 0.9 : 1.3}" style="fill: var(--star)" opacity="${0.35 + 0.15 * (i % 3)}"${i % 2 ? ' class="pulse"' : ''}/>`)
+      .join('');
+    // Selected virtue last so it sits on top.
+    const order = [...ctx.overall.perVirtue].sort((a, b) => (a.id === sel) - (b.id === sel));
+    const markers = order
+      .map((p) => {
+        const v = VT.virtueById(p.id);
+        const [x, y] = TRAIL(p.score == null ? 0 : p.score);
+        const on = p.id === sel;
+        const faint = p.score == null ? ' opacity=".5"' : '';
+        return (
+          (on ? `<circle cx="${x}" cy="${y}" r="13" style="fill: ${v.color}" opacity=".22"><animate attributeName="r" values="11;15;11" dur="10s" repeatCount="indefinite"/></circle>` : '') +
+          `<circle cx="${x}" cy="${y}" r="${on ? 7 : 5.5}" style="fill: ${v.color}; stroke: var(--marker-ring)" stroke-width="2.5"${faint}><title>${v.name}: ${p.phase}</title></circle>`
+        );
+      })
+      .join('');
+    $('trail').innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Your virtues on the path from duty to second nature">
+      <defs><linearGradient id="vt-sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color: var(--sky-1)"/><stop offset="1" style="stop-color: var(--sky-2)"/></linearGradient></defs>
+      <rect width="${W}" height="${H}" fill="url(#vt-sky)"/>
+      <g class="night">${stars}<circle cx="306" cy="30" r="13" style="fill: var(--sun)" opacity=".9"/><circle cx="312" cy="26" r="11" style="fill: var(--sky-1)"/></g>
+      <g class="day"><circle cx="306" cy="30" r="22" style="fill: var(--sun)" opacity=".35"/><circle cx="306" cy="30" r="13" style="fill: var(--sun)"/></g>
+      <path d="M0,${H} L0,98 C60,82 112,96 172,88 C232,78 282,70 ${W},76 L${W},${H}Z" style="fill: var(--hill-1)"/>
+      <path d="M0,${H} L0,114 C70,102 142,118 212,106 C272,96 312,102 ${W},97 L${W},${H}Z" style="fill: var(--hill-2)"/>
+      <path d="${TRAIL_D}" fill="none" style="stroke: var(--trail)" stroke-width="2" stroke-dasharray="1.5 6" stroke-linecap="round"/>
+      <text x="18" y="100" font-size="8.5" style="fill: var(--trail-label)" letter-spacing=".1em">DUTY</text>
+      <text x="282" y="34" font-size="8.5" style="fill: var(--trail-label)" text-anchor="end" letter-spacing=".1em">SECOND NATURE</text>
+      ${markers}</svg>`;
+
+    const list = $('paths');
+    list.innerHTML = '';
+    ctx.overall.perVirtue.forEach((p) => {
+      const v = VT.virtueById(p.id);
+      const li = document.createElement('li');
+      li.className = 'path-row';
+      li.innerHTML = '<span class="path-name"><span class="vdot"></span><span></span></span><span class="path-phase"></span>';
+      li.querySelector('.vdot').style.background = v.color;
+      const name = li.querySelector('.path-name > span:last-child');
+      name.textContent = v.name;
+      name.className = p.id === ctx.settings.lastVirtue ? 'text-cloud font-medium' : 'text-mist';
+      li.querySelector('.path-phase').textContent = p.phase;
+      list.appendChild(li);
     });
 
     const o = ctx.overall;
@@ -64,21 +149,222 @@
     $('snap-meta').textContent = bits.join(' · ');
   }
 
+  // ---------- An urge ----------
+  function toggleUrge(open) {
+    $('urge-panel').classList.toggle('hidden', !open);
+    $('door-urge').setAttribute('aria-expanded', String(open));
+    if (open) {
+      hideGrace();
+      requestAnimationFrame(() => $('urge-panel').scrollIntoView({ behavior: 'smooth', block: 'nearest' }));
+    }
+  }
+
+  function renderStageOptions() {
+    const wrap = $('stage-options');
+    wrap.innerHTML = '';
+    VT.STAGES.forEach((s) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'stage-btn';
+      b.dataset.stage = String(s.id);
+      b.setAttribute('aria-pressed', String(stageSel === s.id));
+      b.innerHTML = '<span class="stage-num"><span class="stage-dot"></span><span></span></span><span class="stage-name"></span>';
+      b.querySelector('.stage-dot').style.background = s.color;
+      b.querySelector('.stage-num > span:last-child').textContent = `Stage ${s.id}`;
+      b.querySelector('.stage-name').textContent = s.name;
+      wrap.appendChild(b);
+    });
+  }
+
+  function describeStage() {
+    if (!stageSel) {
+      $('stage-desc').textContent = 'Tap the stage that fits best.';
+      return;
+    }
+    const st = VT.stageById(stageSel);
+    $('stage-desc').textContent = `${st.desc} For example: “${current().examples[st.id]}”`;
+  }
+
+  function onStageClick(e) {
+    const b = e.target.closest('[data-stage]');
+    if (!b) return;
+    stageSel = Number(b.dataset.stage);
+    $('stage-options').querySelectorAll('[data-stage]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+    describeStage();
+  }
+
+  // Rebuilt when the virtue changes or the form resets, so in-progress choices survive re-renders.
+  function syncUrgeForm() {
+    const v = current();
+    const needs = $('need-chips');
+    needs.innerHTML = '';
+    v.needs.forEach((id) => {
+      const n = VT.needById(id);
+      needs.appendChild(VT.ui.pill(n.name, { need: id }, { pressed: id === needSel, hint: n.hint }));
+    });
+    VT.ui.verse($('need-verse'), needSel ? VT.SCRIPTURE.needs[needSel] : null);
+    $('log-note').placeholder = v.notes.urge;
+    describeStage();
+    renderAlts();
+  }
+
+  function onNeedClick(e) {
+    const b = e.target.closest('[data-need]');
+    if (!b) return;
+    needSel = needSel === b.dataset.need ? null : b.dataset.need;
+    $('need-chips').querySelectorAll('[data-need]').forEach((x) => x.setAttribute('aria-pressed', String(x.dataset.need === needSel)));
+    VT.ui.verse($('need-verse'), needSel ? VT.SCRIPTURE.needs[needSel] : null);
+    renderAlts();
+  }
+
+  function renderAlts() {
+    $('alt-section').classList.toggle('hidden', !needSel);
+    if (!needSel) {
+      altSel = null;
+      altLift = null;
+      return;
+    }
+    const s = settings();
+    const liftMap = VT.insights.liftMap(VT.store.logs(), s);
+    const acts = VT.actsFor(s.acts, s.lastVirtue)
+      .filter((a) => a.needs.includes(needSel))
+      .sort((a, b) => (liftMap[b.id] || 0) - (liftMap[a.id] || 0));
+    if (!acts.some((a) => a.id === altSel)) {
+      altSel = null;
+      altLift = null;
+    }
+    const wrap = $('alt-chips');
+    wrap.innerHTML = '';
+    if (!acts.length) {
+      const p = document.createElement('p');
+      p.className = 'text-sm text-dim';
+      p.textContent = 'None of your good acts are tagged for this need yet. Add some with Edit list below.';
+      wrap.appendChild(p);
+    }
+    acts.forEach((a) =>
+      wrap.appendChild(VT.ui.pill(a.label, { alt: a.id }, { pressed: a.id === altSel, cls: 'pill-act', hint: liftMap[a.id] ? `helps ${VT.round1(liftMap[a.id])}` : '' }))
+    );
+    $('alt-lift').classList.toggle('hidden', !altSel);
+  }
+
+  function onAltClick(e) {
+    const b = e.target.closest('[data-alt]');
+    if (!b) return;
+    altSel = altSel === b.dataset.alt ? null : b.dataset.alt;
+    altLift = null;
+    $('alt-chips').querySelectorAll('[data-alt]').forEach((x) => x.setAttribute('aria-pressed', String(x.dataset.alt === altSel)));
+    VT.ui.buildRate($('alt-rate'));
+    $('alt-lift').classList.toggle('hidden', !altSel);
+  }
+
+  function onAltRate(e) {
+    const b = e.target.closest('[data-rate]');
+    if (!b) return;
+    altLift = Number(b.dataset.rate);
+    VT.ui.setRate($('alt-rate'), altLift);
+  }
+
+  function resetUrge() {
+    stageSel = null;
+    needSel = null;
+    altSel = null;
+    altLift = null;
+    $('log-note').value = '';
+    $('log-date').value = VT.dates.today();
+    $('log-date').max = VT.dates.today();
+    renderStageOptions();
+    syncUrgeForm();
+  }
+
+  function onSaveUrge() {
+    const v = current();
+    if (!stageSel) {
+      $('stage-desc').textContent = 'Pick the stage that fits best — any of them is an honest answer.';
+      $('stage-options').querySelector('[data-stage]').focus();
+      return;
+    }
+    const today = VT.dates.today();
+    const picked = $('log-date').value;
+    const date = picked && picked <= today ? picked : today;
+    const saved = VT.store.addLog({ date, kind: 'urge', virtue: v.id, stage: stageSel, need: needSel, note: $('log-note').value });
+    if (!saved) return toast(VT.ui.SAVE_FAILED);
+
+    let chosen = null;
+    if (altSel) {
+      chosen = settings().acts.find((a) => a.id === altSel) || null;
+      if (chosen) {
+        const alt = VT.store.addLog({
+          date,
+          kind: 'act',
+          actId: chosen.id,
+          label: chosen.label,
+          virtues: chosen.virtues.length ? chosen.virtues : [v.id],
+          status: 'done',
+          lift: altLift,
+          linkedUrgeId: saved.id,
+        });
+        if (!alt) {
+          resetUrge();
+          toggleUrge(false);
+          VT.app.render();
+          return toast(VT.ui.SAVE_FAILED);
+        }
+      }
+    }
+    resetUrge();
+    toggleUrge(false);
+    VT.app.render();
+    toast(`Logged · ${VT.stageById(saved.stage).name}` + (chosen ? ` · and you chose ${chosen.label}` : ''));
+  }
+
+  // ---------- A slip with no repair step: a fresh start ----------
+  function showGrace(entry) {
+    graceId = entry.id;
+    toggleUrge(false);
+    const copy = VT.insights.moment('grace', entry);
+    $('grace-eyebrow').textContent = copy.eyebrow;
+    $('grace-title').textContent = copy.title;
+    $('grace-body').textContent = copy.body;
+    VT.ui.verse($('grace-verse'), copy.verse);
+    $('grace-note').classList.remove('hidden');
+    requestAnimationFrame(() => $('grace-note').scrollIntoView({ behavior: 'smooth', block: 'nearest' }));
+  }
+
+  function hideGrace() {
+    graceId = null;
+    $('grace-note').classList.add('hidden');
+  }
+
+  function onGraceUndo() {
+    if (!graceId) return hideGrace();
+    if (!VT.store.deleteLog(graceId)) return toast(VT.ui.SAVE_FAILED);
+    hideGrace();
+    VT.app.render();
+    toast('Removed.');
+  }
+
   // ---------- Good acts ----------
   const actMode = () => document.querySelector('input[name="act-mode"]:checked').value;
 
-  function renderActChips(s) {
+  function renderActChips(s, logs) {
     const wrap = $('act-chips');
     wrap.innerHTML = '';
     const acts = VT.actsFor(s.acts, s.lastVirtue);
     if (!acts.length) {
       const p = document.createElement('p');
-      p.className = 'text-sm text-stone-500';
-      p.textContent = 'No good acts for this virtue yet — tap Edit list to add the things that genuinely help.';
+      p.className = 'text-sm text-dim';
+      p.textContent = 'No good acts for this virtue yet. Tap Edit list to add the things that genuinely help.';
       wrap.appendChild(p);
-      return;
     }
-    acts.forEach((a) => wrap.appendChild(VT.ui.pill(a.label, { act: a.id }, { cls: 'pill-act' })));
+    acts.forEach((a) => {
+      const b = VT.ui.pill(a.label, { act: a.id }, { cls: 'pill-act' });
+      if (a.id === bloomId) b.classList.add('bloom');
+      wrap.appendChild(b);
+    });
+    bloomId = null;
+    const today = VT.dates.today();
+    const n = logs.filter((l) => VT.isDoneAct(l) && l.date === today).length;
+    $('acts-today').textContent = n ? `${VT.plural(n, 'good act')} today.` : '';
   }
 
   function onActChip(e) {
@@ -97,6 +383,7 @@
       status: planned ? 'planned' : 'done',
     });
     if (!saved) return toast(VT.ui.SAVE_FAILED);
+    if (!planned) bloomId = act.id;
     openFollowup(saved.id, planned ? 'expect' : 'lift');
     VT.app.render();
     toast(planned ? `Up next · ${act.label}` : `Logged · ${act.label}`);
@@ -142,16 +429,14 @@
     let keepOpen = false;
     if (actFollow.ask === 'expect') {
       result = 'Noted. Tap “Did it” under Up next when you’re done.';
+    } else if (entry.expectLift != null) {
+      keepOpen = true;
+      const d = v - entry.expectLift;
+      result =
+        `You expected ${entry.expectLift}/5. It was ${v}/5.` +
+        (d > 0 ? ' Better than the low mood predicted.' : d < 0 ? ' Less than hoped — still a rep that counts.' : ' Right on.');
     } else {
-      if (entry.expectLift != null) {
-        keepOpen = true;
-        const d = v - entry.expectLift;
-        result =
-          `You expected ${entry.expectLift}/5. It was ${v}/5.` +
-          (d > 0 ? ' Better than the low mood predicted.' : d < 0 ? ' Less than hoped — still a rep that counts.' : ' Right on.');
-      } else {
-        result = `Noted — ${VT.LIFT_LABELS[v].toLowerCase()}.`;
-      }
+      result = `Noted — ${VT.LIFT_LABELS[v].toLowerCase()}.`;
     }
     $('act-followup-result').textContent = result;
     VT.app.render();
@@ -174,13 +459,12 @@
       const li = document.createElement('li');
       li.className = 'plan flex items-center gap-3';
       li.innerHTML =
-        '<div class="min-w-0 flex-1"><p class="text-sm font-medium text-stone-800" data-f="label"></p><p class="text-xs text-stone-500" data-f="meta"></p></div>' +
-        '<button type="button" class="btn-ghost text-sm" data-upnext-done></button>' +
-        '<button type="button" class="text-xs text-stone-400 hover:text-stone-700 px-1" data-upnext-drop aria-label="Remove">Not today</button>';
+        '<div class="min-w-0 flex-1"><p class="text-sm font-medium" data-f="label"></p><p class="text-xs text-dim" data-f="meta"></p></div>' +
+        '<button type="button" class="btn btn-ghost btn-sm shrink-0" data-upnext-done>Did it</button>' +
+        '<button type="button" class="link-quiet shrink-0" data-upnext-drop>Not today</button>';
       li.querySelector('[data-f="label"]').textContent = l.label;
       li.querySelector('[data-f="meta"]').textContent =
         (l.expectLift != null ? `Expecting ${l.expectLift}/5 · ` : '') + (l.date === VT.dates.today() ? 'today' : `since ${VT.dates.pretty(l.date)}`);
-      li.querySelector('[data-upnext-done]').textContent = 'Did it';
       li.querySelector('[data-upnext-done]').dataset.id = l.id;
       li.querySelector('[data-upnext-drop]').dataset.id = l.id;
       list.appendChild(li);
@@ -216,7 +500,7 @@
     list.innerHTML = '';
     if (!plans.length) {
       const li = document.createElement('li');
-      li.className = 'text-sm text-stone-500';
+      li.className = 'text-sm text-dim';
       li.textContent = PLAN_EXAMPLES[v.id] || '';
       list.appendChild(li);
     }
@@ -224,9 +508,9 @@
       const li = document.createElement('li');
       li.className = 'plan';
       li.innerHTML =
-        '<p class="text-sm text-stone-700"><span class="text-stone-500">When</span> <span data-f="when"></span>, <span class="text-stone-500">I will</span> <span data-f="then"></span>.</p>' +
-        '<div class="mt-2 flex items-center gap-4"><button type="button" class="link-btn" data-plan-did>I did it</button>' +
-        '<button type="button" class="text-xs text-stone-400 hover:text-stone-700" data-plan-del>Remove</button></div>';
+        '<p class="text-sm"><span class="text-dim">When</span> <span data-f="when"></span>, <span class="text-dim">I will</span> <span data-f="then"></span>.</p>' +
+        '<div class="mt-2 flex items-center gap-4"><button type="button" class="link text-sm font-medium" data-plan-did>I did it</button>' +
+        '<button type="button" class="link-quiet" data-plan-del>Remove</button></div>';
       li.querySelector('[data-f="when"]').textContent = p.when.replace(/[.\s]+$/, '');
       li.querySelector('[data-f="then"]').textContent = p.then.replace(/[.\s]+$/, '');
       li.querySelector('[data-plan-did]').dataset.id = p.id;
@@ -287,244 +571,6 @@
     }
   }
 
-  // ---------- Pull / slip log ----------
-  function renderStageOptions() {
-    const wrap = $('stage-options');
-    wrap.innerHTML = '';
-    VT.STAGES.forEach((s) => {
-      const label = document.createElement('label');
-      label.className = 'choice';
-      label.innerHTML = `
-        <input type="radio" name="stage" value="${s.id}" class="sr-only" />
-        <span class="choice-body">
-          <span class="flex items-center gap-2">
-            <span class="stage-dot" style="background:${s.color}"></span>
-            <span class="text-xs text-stone-500">Stage ${s.id}</span>
-          </span>
-          <span class="block font-medium text-stone-800 mt-1" data-f="name"></span>
-        </span>`;
-      label.querySelector('[data-f="name"]').textContent = s.name;
-      wrap.appendChild(label);
-    });
-  }
-
-  // Rebuilt only when the virtue changes or the form resets, so in-progress choices survive re-renders.
-  function syncVirtueForm() {
-    const v = current();
-    $('kind-urge-label').textContent = v.urgeLabel;
-    $('kind-urge-hint').textContent = v.urgeHint;
-    $('kind-slip-label').textContent = v.slipLabel;
-    $('kind-slip-hint').textContent = v.slipHint;
-    $('slip-intro').textContent = v.slipIntro;
-    $('slip-win').textContent = v.slipWin;
-    VT.ui.verse($('slip-verse'), v.repairs.length ? VT.SCRIPTURE.slip : VT.SCRIPTURE.grace);
-
-    const wrap = $('repair-options');
-    wrap.innerHTML = '';
-    v.repairs.forEach((t) => {
-      const label = document.createElement('label');
-      label.className = 'choice';
-      label.innerHTML = `
-        <input type="checkbox" name="repair" value="${t}" class="sr-only" />
-        <span class="choice-body flex items-start gap-3">
-          <span class="checkmark" aria-hidden="true"></span>
-          <span>
-            <span class="block font-medium text-stone-800" data-repair-label="${t}"></span>
-            <span class="block text-xs text-stone-500 mt-0.5" data-f="hint"></span>
-          </span>
-        </span>`;
-      label.querySelector('[data-repair-label]').textContent = VT.REPAIRS[t].done();
-      label.querySelector('[data-f="hint"]').textContent = VT.REPAIRS[t].doneHint;
-      wrap.appendChild(label);
-    });
-
-    const needs = $('need-chips');
-    needs.innerHTML = '';
-    v.needs.forEach((id) => {
-      const n = VT.needById(id);
-      needs.appendChild(VT.ui.pill(n.name, { need: id }, { pressed: id === needSel, hint: n.hint }));
-    });
-    VT.ui.verse($('need-verse'), needSel ? VT.SCRIPTURE.needs[needSel] : null);
-  }
-
-  function syncLogForm() {
-    const v = current();
-    const slip = kind() === 'slip';
-    const repaired = [...document.querySelectorAll('input[name="repair"]:checked')].length > 0;
-    const kidsFirst = VT.kidsFirst(v);
-
-    $('urge-fields').classList.toggle('hidden', slip);
-    $('slip-fields').classList.toggle('hidden', !slip);
-    $('slip-predict-wrap').classList.toggle('hidden', !v.repairs.length);
-    $('slip-actual-row').classList.toggle('hidden', !repaired);
-    $('slip-predicted-label').textContent = repaired
-      ? 'Before you made it right, how hard did you expect it to go?'
-      : kidsFirst
-        ? 'Before you make it right: how hard do you expect it to go?'
-        : `Before you tell ${VT.spouse('them')}: how hard do you expect it to go?`;
-
-    const note = $('slip-window-note');
-    if (v.repairs.length && !repaired) {
-      note.textContent = kidsFirst
-        ? 'Saving starts a 15-minute repair window. The pull to move on and pretend it didn’t happen is strongest right after.'
-        : 'Saving starts a 15-minute honesty window. The urge to hide is loudest right after — you won’t have to face it alone.';
-      note.classList.remove('hidden');
-    } else {
-      note.classList.add('hidden');
-    }
-
-    $('log-note').placeholder = slip ? v.notes.slip : v.notes.urge;
-    renderAlts();
-  }
-
-  function onNeedClick(e) {
-    const b = e.target.closest('[data-need]');
-    if (!b) return;
-    needSel = needSel === b.dataset.need ? null : b.dataset.need;
-    $('need-chips').querySelectorAll('[data-need]').forEach((x) => x.setAttribute('aria-pressed', String(x.dataset.need === needSel)));
-    VT.ui.verse($('need-verse'), needSel ? VT.SCRIPTURE.needs[needSel] : null);
-    renderAlts();
-  }
-
-  function renderAlts() {
-    const show = kind() === 'urge' && !!needSel;
-    $('alt-section').classList.toggle('hidden', !show);
-    if (!show) {
-      altSel = null;
-      altLift = null;
-      return;
-    }
-    const s = settings();
-    const liftMap = VT.insights.liftMap(VT.store.logs(), s);
-    const acts = VT.actsFor(s.acts, s.lastVirtue)
-      .filter((a) => a.needs.includes(needSel))
-      .sort((a, b) => (liftMap[b.id] || 0) - (liftMap[a.id] || 0));
-    if (!acts.some((a) => a.id === altSel)) {
-      altSel = null;
-      altLift = null;
-    }
-    const wrap = $('alt-chips');
-    wrap.innerHTML = '';
-    if (!acts.length) {
-      const p = document.createElement('p');
-      p.className = 'text-sm text-stone-500';
-      p.textContent = 'None of your good acts are tagged for this need yet — add some with Edit list above.';
-      wrap.appendChild(p);
-    }
-    acts.forEach((a) =>
-      wrap.appendChild(
-        VT.ui.pill(a.label, { alt: a.id }, { pressed: a.id === altSel, cls: 'pill-act', hint: liftMap[a.id] ? `helps ${VT.round1(liftMap[a.id])}` : '' })
-      )
-    );
-    $('alt-lift').classList.toggle('hidden', !altSel);
-  }
-
-  function onAltClick(e) {
-    const b = e.target.closest('[data-alt]');
-    if (!b) return;
-    altSel = altSel === b.dataset.alt ? null : b.dataset.alt;
-    altLift = null;
-    $('alt-chips').querySelectorAll('[data-alt]').forEach((x) => x.setAttribute('aria-pressed', String(x.dataset.alt === altSel)));
-    VT.ui.buildRate($('alt-rate'));
-    $('alt-lift').classList.toggle('hidden', !altSel);
-  }
-
-  function onAltRate(e) {
-    const b = e.target.closest('[data-rate]');
-    if (!b) return;
-    altLift = Number(b.dataset.rate);
-    VT.ui.setRate($('alt-rate'), altLift);
-  }
-
-  function resetLogForm() {
-    $('log-form').reset();
-    $('log-date').value = VT.dates.today();
-    $('log-date').max = VT.dates.today();
-    $('stage-error').classList.add('hidden');
-    $('stage-desc').textContent = 'Tap the stage that fits best.';
-    VT.ui.setSlider('slip-predicted', 5);
-    VT.ui.setSlider('slip-actual', 5);
-    needSel = null;
-    altSel = null;
-    altLift = null;
-    syncVirtueForm();
-    syncLogForm();
-  }
-
-  function onLogChange(e) {
-    if (e.target.name === 'kind' || e.target.name === 'repair') syncLogForm();
-    if (e.target.name === 'stage') {
-      const st = VT.stageById(e.target.value);
-      const ex = current().examples[st.id];
-      $('stage-error').classList.add('hidden');
-      $('stage-desc').textContent = `${st.desc} For example: “${ex}”`;
-    }
-  }
-
-  function onLogSubmit(e) {
-    e.preventDefault();
-    const v = current();
-    const date = $('log-date').value || VT.dates.today();
-    const note = $('log-note').value;
-
-    if (kind() === 'slip') {
-      const repairsDone = [...document.querySelectorAll('input[name="repair"]:checked')].map((x) => x.value);
-      const saved = VT.store.addLog({
-        date,
-        kind: 'slip',
-        virtue: v.id,
-        need: needSel,
-        note,
-        repairsDone,
-        predicted: $('slip-predicted').value,
-        actual: $('slip-actual').value,
-      });
-      if (!saved) return toast(VT.ui.SAVE_FAILED);
-      resetLogForm();
-      if (saved.disclosed) VT.app.celebrate(saved);
-      else if (v.repairs.length) {
-        VT.app.render();
-        toast('Logged. You’re not in trouble, and you’re not alone.');
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-      } else VT.app.grace(saved);
-      return;
-    }
-
-    const picked = document.querySelector('input[name="stage"]:checked');
-    if (!picked) {
-      $('stage-error').classList.remove('hidden');
-      document.querySelector('input[name="stage"]').focus();
-      return;
-    }
-    const saved = VT.store.addLog({ date, kind: 'urge', virtue: v.id, stage: picked.value, need: needSel, note });
-    if (!saved) return toast(VT.ui.SAVE_FAILED);
-
-    let chosen = null;
-    if (altSel) {
-      chosen = settings().acts.find((a) => a.id === altSel) || null;
-      if (chosen) {
-        const alt = VT.store.addLog({
-          date,
-          kind: 'act',
-          actId: chosen.id,
-          label: chosen.label,
-          virtues: chosen.virtues.length ? chosen.virtues : [v.id],
-          status: 'done',
-          lift: altLift,
-          linkedUrgeId: saved.id,
-        });
-        if (!alt) {
-          resetLogForm();
-          VT.app.render();
-          return toast(VT.ui.SAVE_FAILED);
-        }
-      }
-    }
-    resetLogForm();
-    VT.app.render();
-    toast(`Logged · ${VT.stageById(saved.stage).name}` + (chosen ? ` · and you chose ${chosen.label}` : ''));
-  }
-
   // ---------- Good-acts editor ----------
   function actRow(a) {
     const li = document.createElement('li');
@@ -532,7 +578,7 @@
     li.dataset.id = a.id;
     li.innerHTML =
       '<div class="flex gap-2"><input class="field text-sm" maxlength="60" aria-label="Good act" placeholder="e.g. Went for a walk" />' +
-      '<button type="button" class="btn-ghost text-sm shrink-0" data-remove aria-label="Remove">Remove</button></div>' +
+      '<button type="button" class="btn btn-ghost btn-sm shrink-0" data-remove>Remove</button></div>' +
       '<p class="tag-label">Counts toward</p><div class="mt-1 flex flex-wrap gap-1.5" data-group="vt"></div>' +
       '<p class="tag-label">Meets the need for</p><div class="mt-1 flex flex-wrap gap-1.5" data-group="nd"></div>';
     li.querySelector('input').value = a.label;
@@ -550,10 +596,6 @@
     VT.ui.openDialog($('acts-dialog'));
   }
 
-  function closeActsEditor() {
-    VT.ui.closeDialog($('acts-dialog'));
-  }
-
   function onActsEditClick(e) {
     const toggle = e.target.closest('[data-vt], [data-nd]');
     if (toggle) return toggle.setAttribute('aria-pressed', String(toggle.getAttribute('aria-pressed') !== 'true'));
@@ -569,7 +611,7 @@
       .filter((a) => a.label);
     if (acts.length > VT.store.LIST_MAX) return toast(`Keep it to ${VT.store.LIST_MAX} good acts — remove a few before saving.`);
     if (!VT.store.updateSettings({ acts })) return toast(VT.ui.SAVE_FAILED);
-    closeActsEditor();
+    VT.ui.closeDialog($('acts-dialog'));
     VT.app.render();
     renderAlts();
     toast('Good acts saved');
@@ -578,30 +620,40 @@
   // ---------- Public ----------
   VT.today = {
     current,
-    resetLogForm,
-    // An entry was deleted elsewhere: drop its follow-up so a note typed there isn't silently lost.
+    resetUrge,
+    showGrace,
+    // An entry was deleted elsewhere: drop anything still pointing at it so a note typed there isn't silently lost.
     forget(id) {
       if (!id || (actFollow && actFollow.id === id)) closeFollowup(false);
+      if (!id || graceId === id) hideGrace();
     },
 
     init() {
-      renderStageOptions();
-      resetLogForm();
-      $('virtue-rows').addEventListener('click', (e) => {
+      resetUrge();
+      $('virtue-seg').addEventListener('click', (e) => {
         const b = e.target.closest('[data-virtue]');
         if (b) selectVirtue(b.dataset.virtue);
       });
+      $('door-urge').addEventListener('click', () => toggleUrge($('urge-panel').classList.contains('hidden')));
+      $('door-slip').addEventListener('click', () => VT.honesty.startSlip(currentId()));
+      $('cancel-urge').addEventListener('click', () => {
+        resetUrge();
+        toggleUrge(false);
+      });
+      $('save-urge').addEventListener('click', onSaveUrge);
+      $('stage-options').addEventListener('click', onStageClick);
+      $('need-chips').addEventListener('click', onNeedClick);
+      $('alt-chips').addEventListener('click', onAltClick);
+      $('alt-rate').addEventListener('click', onAltRate);
+      $('grace-close').addEventListener('click', hideGrace);
+      $('grace-undo').addEventListener('click', onGraceUndo);
+
       $('act-chips').addEventListener('click', onActChip);
       $('act-rate').addEventListener('click', onActRate);
       $('act-followup-done').addEventListener('click', () => closeFollowup(true));
       $('upnext-list').addEventListener('click', onUpNextClick);
       $('plan-form').addEventListener('submit', onPlanSubmit);
       $('plans-list').addEventListener('click', onPlansClick);
-      $('log-form').addEventListener('submit', onLogSubmit);
-      $('log-form').addEventListener('change', onLogChange);
-      $('need-chips').addEventListener('click', onNeedClick);
-      $('alt-chips').addEventListener('click', onAltClick);
-      $('alt-rate').addEventListener('click', onAltRate);
       $('acts-edit').addEventListener('click', openActsEditor);
       $('acts-edit-list').addEventListener('click', onActsEditClick);
       $('acts-add').addEventListener('click', () => {
@@ -610,20 +662,21 @@
         li.querySelector('input').focus();
       });
       $('acts-form').addEventListener('submit', onActsSave);
-      $('acts-cancel').addEventListener('click', closeActsEditor);
+      $('acts-cancel').addEventListener('click', () => VT.ui.closeDialog($('acts-dialog')));
     },
 
     render(ctx) {
       const v = VT.virtueById(ctx.settings.lastVirtue);
-      renderRows(ctx);
-      $('today-verse-label').textContent = `Verse for today · ${v.name}`;
-      VT.ui.verse($('today-verse'), VT.scripture.ofTheDay(v.verses));
-      renderActChips(ctx.settings);
+      renderGreeting();
+      renderSeg(ctx.settings);
+      renderDoors();
+      renderTrail(ctx);
+      renderActChips(ctx.settings, ctx.logs);
       renderUpNext(ctx.logs);
       renderPlans(ctx.settings);
-      // Names can change while the form is open; refresh label text without rebuilding inputs.
-      document.querySelectorAll('[data-repair-label]').forEach((el) => (el.textContent = VT.REPAIRS[el.dataset.repairLabel].done()));
-      if (kind() === 'slip') syncLogForm();
+      $('today-verse-label').textContent = `Verse for today · ${v.name}`;
+      VT.ui.verse($('today-verse'), VT.scripture.ofTheDay(v.verses));
+      if (graceId && !VT.store.getLog(graceId)) hideGrace();
     },
   };
 })();

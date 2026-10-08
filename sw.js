@@ -1,12 +1,11 @@
 // Offline support: serve cached files instantly, refresh them in the background.
 // Bump VERSION when shipping changes so old caches are cleared.
-const VERSION = 'vt-v7';
+const VERSION = 'vt-v8';
 const CORE = [
   './',
   'index.html',
   'css/tailwind.css',
   'css/styles.css',
-  'vendor/chart.umd.min.js',
   'js/stages.js',
   'js/virtues.js',
   'js/scripture.js',
@@ -16,6 +15,7 @@ const CORE = [
   'js/charts.js',
   'js/ui.js',
   'js/today.js',
+  'js/honesty.js',
   'js/app.js',
   'manifest.webmanifest',
   'icons/icon-192.png',

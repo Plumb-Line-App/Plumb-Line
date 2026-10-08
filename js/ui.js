@@ -1,4 +1,4 @@
-// Small DOM helpers shared by the Today tab and the app controller.
+// Small DOM helpers shared by the tab controllers.
 (function () {
   const $ = (id) => document.getElementById(id);
   const RATE_HINTS = { 1: 'Not at all', 3: 'Some', 5: 'A lot' };
@@ -79,6 +79,17 @@
     closeDialog(el) {
       if (typeof el.close === 'function') el.close();
       else el.removeAttribute('open');
+    },
+
+    // Soft top banner for moments that need words, not a toast (slip intercept, fresh start).
+    banner(title, body, ms = 4200, tone = '') {
+      const el = $('banner');
+      el.dataset.tone = tone;
+      $('banner-title').textContent = title;
+      $('banner-body').textContent = body;
+      el.classList.add('show');
+      clearTimeout(el._t);
+      el._t = setTimeout(() => el.classList.remove('show'), ms);
     },
 
     clampPct: (score) => (score == null ? 0 : Math.max(2, Math.min(98, score))),

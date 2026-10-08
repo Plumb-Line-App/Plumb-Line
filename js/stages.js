@@ -9,39 +9,40 @@ VT.STAGES = [
     name: 'Heavy Kantian Fight',
     short: 'Heavy fight',
     desc: 'Held the line by sheer force, and it left me drained.',
-    color: '#9aa8b8',
+    color: 'var(--s1)',
   },
   {
     id: 2,
     name: 'Softening Kantian Fight',
     short: 'Softening',
     desc: 'Felt the pull and redirected it — a pause, a delay, a better option. Still effortful.',
-    color: '#6f9bb5',
+    color: 'var(--s2)',
   },
   {
     id: 3,
     name: 'Early Aristotelian Shift',
     short: 'Early shift',
     desc: 'Space appeared on its own between the feeling and the pull. The better choice came easily.',
-    color: '#7fae9a',
+    color: 'var(--s3)',
   },
   {
     id: 4,
     name: 'Aristotelian Harmony',
     short: 'Harmony',
     desc: 'The pull barely showed up. The right thing was simply what I wanted.',
-    color: '#4f8a72',
+    color: 'var(--s4)',
   },
 ];
 
 VT.stageById = (id) => VT.STAGES.find((s) => s.id === Number(id));
 
+// Colours are CSS custom properties so every chart follows the light/dark theme.
 // Slips sit outside the stage scale; warm gray keeps them visible without an alarm colour.
-VT.SLIP = { name: 'Slip', short: 'Slip', color: '#c8bcae' };
+VT.SLIP = { name: 'Slip', short: 'Slip', color: 'var(--c-slip)' };
 
-// Good acts: the "doing right" side. Warm amber, distinct from the stage ramp and the slip gray.
-VT.ACT = { name: 'Good act', short: 'Good act', color: '#b8842c' };
-VT.FIGHT_COLOR = '#3d7fb0'; // urges & slips in the crowding-out chart (validated pair with VT.ACT.color)
+// Good acts: the "doing right" side (mint), set against urges & slips (amber) in the crowding-out chart.
+VT.ACT = { name: 'Good act', short: 'Good act', color: 'var(--c-act)' };
+VT.FIGHT_COLOR = 'var(--c-urge)';
 
 // What a pull is usually really about. Each virtue offers the needs that fit it,
 // and good acts are tagged with the needs they meet.

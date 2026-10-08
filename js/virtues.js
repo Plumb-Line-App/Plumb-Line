@@ -1,19 +1,22 @@
 // Virtues: each pairs a habit being left with the character being built.
 // The 4-stage path, slips, repair, needs and good acts all hang off a virtue.
 (function () {
-  // Identity colours (validated as a set; lines also differ by point shape and dash for colour-blind readers).
+  // Identity colours are theme tokens (validated as a set per theme); friction lines also differ by dash for colour-blind readers.
   VT.VIRTUES = [
     {
       id: 'temperance',
       name: 'Temperance',
       area: 'with food',
-      color: '#21905f',
-      pointStyle: 'circle',
-      dash: [],
+      color: 'var(--v-temperance)',
+      dash: '',
       urgeLabel: 'I met an urge',
       urgeHint: 'Place it on the 4-stage scale',
       slipLabel: 'I slipped',
       slipHint: 'The truth still gets a win',
+      urgeDoor: 'I feel the pull',
+      slipDoor: 'A Slip',
+      slipDoorHint: 'Let’s handle it together',
+      becoming: 'Food back in its place — nourishment, not rescue.',
       slipIntro:
         'A slip is one moment, not a verdict on you. There are two separate questions here: what happened with food, ' +
         'and what you do next with the truth.',
@@ -36,13 +39,16 @@
       id: 'patience',
       name: 'Patience',
       area: 'with the kids',
-      color: '#8659b8',
-      pointStyle: 'triangle',
-      dash: [6, 4],
+      color: 'var(--v-patience)',
+      dash: '6 4',
       urgeLabel: 'I felt the heat rise',
       urgeHint: 'Place it on the 4-stage scale',
       slipLabel: 'I snapped',
       slipHint: 'Repair still gets a win',
+      urgeDoor: 'I feel the heat rise',
+      slipDoor: 'I Snapped',
+      slipDoorHint: 'Repair still wins',
+      becoming: 'Slow to anger. Quick to repair.',
       slipIntro:
         'Snapping is one moment, not who you are as a parent. There are two separate questions here: what happened, ' +
         'and what you do next to repair it.',
@@ -65,13 +71,16 @@
       id: 'diligence',
       name: 'Diligence',
       area: 'with work & tasks',
-      color: '#c4652a',
-      pointStyle: 'rectRounded',
-      dash: [2, 3],
+      color: 'var(--v-diligence)',
+      dash: '2 4',
       urgeLabel: 'I felt the pull to put it off',
       urgeHint: 'Place it on the 4-stage scale',
       slipLabel: 'I put it off',
       slipHint: 'Start again — no penalty',
+      urgeDoor: 'I feel the pull to put it off',
+      slipDoor: 'I Put It Off',
+      slipDoorHint: 'Start again — no penalty',
+      becoming: 'Do the work that’s mine, heartily.',
       slipIntro:
         'Putting it off is one moment, not a verdict. Shame makes the next start harder, so skip it: name what happened ' +
         'and pick the smallest next step.',
