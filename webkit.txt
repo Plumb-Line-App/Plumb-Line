@@ -1,0 +1,44 @@
+webkit 27.2 · https://Plumb-Line-App.github.io/Plumb-Line/
+PASS [light] app booted
+PASS [light] today: no sideways scroll (402/402)
+PASS [light] act follow-up opens
+PASS [light] act, urge and chosen act saved
+PASS [light] slip opens Honest Script
+PASS [light] window running
+PASS [light] ring counts down (14:58 → 14:57)
+PASS [light] script: no sideways scroll (402/402)
+PASS [light] message follows the chips
+PASS [light] text button is an sms: link
+PASS [light] double victory
+PASS [light] save goes to Progress
+PASS [light] outcome saved
+PASS [light] progress: no sideways scroll (402/402)
+PASS [light] fear chart drawn
+PASS [light] crowding chart drawn
+PASS [light] friction chart drawn
+PASS [light] weekly check-in saves
+PASS [light] foundations: no sideways scroll (402/402)
+PASS [light] open section title stays pinned (top 0)
+PASS [light] no page errors
+PASS [dark] app booted
+PASS [dark] today: no sideways scroll (402/402)
+PASS [dark] act follow-up opens
+PASS [dark] act, urge and chosen act saved
+PASS [dark] slip opens Honest Script
+PASS [dark] window running
+PASS [dark] ring counts down (14:58 → 14:57)
+PASS [dark] script: no sideways scroll (402/402)
+PASS [dark] message follows the chips
+PASS [dark] text button is an sms: link
+PASS [dark] double victory
+PASS [dark] save goes to Progress
+PASS [dark] outcome saved
+PASS [dark] progress: no sideways scroll (402/402)
+PASS [dark] fear chart drawn
+PASS [dark] crowding chart drawn
+PASS [dark] friction chart drawn
+PASS [dark] weekly check-in saves
+PASS [dark] foundations: no sideways scroll (402/402)
+PASS [dark] open section title stays pinned (top 0)
+PASS [dark] no page errors
+ALL PASSED
