@@ -1,0 +1,14 @@
+{
+  "name": "virtue-tracker",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Virtue Tracker: From Friction to Freedom",
+  "scripts": {
+    "build:css": "tailwindcss -i ./css/tailwind.src.css -o ./css/tailwind.css --minify",
+    "watch:css": "tailwindcss -i ./css/tailwind.src.css -o ./css/tailwind.css --watch",
+    "start": "npx --yes serve ."
+  },
+  "devDependencies": {
+    "tailwindcss": "3.4.1"
+  }
+}

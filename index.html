@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Virtue Tracker</title>
+  <meta name="description" content="From Friction to Freedom — track the shift from willpower to second nature in your relationship with food." />
+  <meta name="theme-color" content="#f5f3ef" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,500;8..60,600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/tailwind.css" />
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body class="bg-stone-100 text-stone-700 font-sans antialiased">
+
+  <!-- Header -->
+  <header class="border-b border-stone-200 bg-stone-50/80 backdrop-blur sticky top-0 z-20">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-4">
+      <div class="min-w-0">
+        <h1 class="font-serif text-lg sm:text-xl font-semibold text-stone-800 leading-tight">Virtue Tracker</h1>
+        <p class="text-xs sm:text-sm text-stone-500 truncate">From Friction to Freedom</p>
+      </div>
+      <nav class="flex items-center gap-1 text-sm" aria-label="Sections">
+        <a href="#log" class="nav-link">Log</a>
+        <a href="#progress" class="nav-link">Progress</a>
+        <a href="#weekly" class="nav-link">Weekly</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+    <!-- On mobile the two columns dissolve (display: contents) and `order` sets a log-first flow.
+         On desktop: forms on the left, progress on the right. -->
+    <div class="flex flex-col gap-6 lg:grid lg:grid-cols-12 lg:items-start">
+
+      <!-- LEFT COLUMN -->
+      <div class="contents lg:flex lg:flex-col lg:gap-6 lg:col-span-5">
+
+        <!-- Daily Reflection Log -->
+        <section id="log" class="card order-1 scroll-mt-24">
+          <div class="flex items-baseline justify-between gap-3">
+            <h2 class="card-title">Daily Reflection</h2>
+            <input type="date" id="log-date" class="text-sm text-stone-500 bg-transparent border-0 p-0 focus:ring-0 text-right" aria-label="Date of this reflection" />
+          </div>
+          <p class="card-sub">An urge came up. Where were you on the path?</p>
+
+          <form id="log-form" class="mt-4 space-y-4" novalidate>
+            <fieldset>
+              <legend class="sr-only">Active stage</legend>
+              <div id="stage-options" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2 gap-2"></div>
+              <p id="stage-error" class="hidden mt-2 text-sm text-mist-700">Choose the stage that fits best — there's no wrong answer.</p>
+            </fieldset>
+
+            <div>
+              <label for="log-note" class="field-label">Context notes</label>
+              <textarea id="log-note" rows="3" maxlength="1000" class="field mt-1" placeholder="e.g. Felt down after work, paused for 10 minutes instead of opening the pantry."></textarea>
+            </div>
+
+            <button type="submit" class="btn-primary w-full">Save Log</button>
+          </form>
+        </section>
+
+        <!-- Weekly Check-In -->
+        <section id="weekly" class="card order-4 scroll-mt-24">
+          <div class="flex items-baseline justify-between gap-3">
+            <h2 class="card-title">Weekly Check-In</h2>
+            <span id="weekly-due" class="text-xs text-stone-500"></span>
+          </div>
+          <p class="card-sub">Step back and look at the whole week.</p>
+
+          <form id="weekly-form" class="mt-4 space-y-5" novalidate>
+            <div>
+              <label for="week-of" class="field-label">Week of</label>
+              <input type="date" id="week-of" class="field mt-1" required />
+            </div>
+
+            <div>
+              <div class="flex items-baseline justify-between">
+                <label for="friction" class="field-label">Internal friction</label>
+                <output id="friction-out" for="friction" class="font-serif text-2xl text-stone-800 tabular-nums">5</output>
+              </div>
+              <input type="range" id="friction" min="1" max="10" step="1" value="5" class="slider w-full mt-2" aria-describedby="friction-scale" />
+              <div id="friction-scale" class="flex justify-between text-xs text-stone-500 mt-1">
+                <span>1 · Effortless</span>
+                <span>10 · Exhausting battle</span>
+              </div>
+            </div>
+
+            <fieldset>
+              <legend class="field-label">Where did your energy go?</legend>
+              <div class="mt-2 grid grid-cols-2 gap-2">
+                <label class="choice">
+                  <input type="radio" name="energy" value="restriction" class="sr-only peer" />
+                  <span class="choice-body">
+                    <span class="block font-medium text-stone-800">Not doing wrong</span>
+                    <span class="block text-xs text-stone-500 mt-0.5">Mostly holding back</span>
+                  </span>
+                </label>
+                <label class="choice">
+                  <input type="radio" name="energy" value="initiation" class="sr-only peer" />
+                  <span class="choice-body">
+                    <span class="block font-medium text-stone-800">Doing right</span>
+                    <span class="block text-xs text-stone-500 mt-0.5">Mostly reaching toward good</span>
+                  </span>
+                </label>
+              </div>
+            </fieldset>
+
+            <div>
+              <label for="compassion" class="field-label">When you slipped, how did you meet yourself?</label>
+              <select id="compassion" class="field mt-1">
+                <option value="" disabled selected>Choose one…</option>
+                <option value="1">Heavy guilt and shame</option>
+                <option value="2">Mostly self-critical</option>
+                <option value="3">Mixed — some judgment, some understanding</option>
+                <option value="4">Mostly understanding</option>
+                <option value="5">Gentle curiosity</option>
+                <option value="0">No slips worth noting this week</option>
+              </select>
+            </div>
+
+            <div>
+              <label for="weekly-note" class="field-label">Retrospective</label>
+              <textarea id="weekly-note" rows="3" maxlength="2000" class="field mt-1" placeholder="What helped? What was hard? What do you want to carry into next week?"></textarea>
+            </div>
+
+            <p id="weekly-error" class="hidden text-sm text-mist-700">Pick where your energy went and how you met yourself to finish the check-in.</p>
+            <button type="submit" class="btn-primary w-full">Complete Check-In</button>
+          </form>
+
+          <div id="weekly-feedback" class="hidden mt-5 rounded-xl bg-sage-50 border border-sage-200 p-4" role="status" aria-live="polite">
+            <p class="text-xs uppercase tracking-wide text-sage-700 font-medium">Your week, reflected</p>
+            <div id="weekly-feedback-body" class="mt-2 space-y-2 text-sm text-stone-700 leading-relaxed"></div>
+          </div>
+        </section>
+      </div>
+
+      <!-- RIGHT COLUMN -->
+      <div class="contents lg:flex lg:flex-col lg:gap-6 lg:col-span-7">
+
+        <!-- Insight widget -->
+        <section id="progress" class="card order-2 scroll-mt-24" aria-live="polite">
+          <p class="text-xs uppercase tracking-wide text-stone-500 font-medium">Virtue Stage Insight</p>
+          <h2 id="insight-phase" class="font-serif text-2xl text-stone-800 mt-1"></h2>
+          <p id="insight-message" class="mt-2 text-stone-600 leading-relaxed"></p>
+
+          <!-- Phase continuum: Kant → Aristotle -->
+          <div class="mt-5">
+            <div class="relative h-2 rounded-full bg-gradient-to-r from-mist-200 via-mist-300 to-sage-400">
+              <div id="phase-marker" class="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-4 h-4 rounded-full bg-white border-2 border-stone-600 shadow transition-all duration-500" style="left: 0%"></div>
+            </div>
+            <div class="flex justify-between text-xs text-stone-500 mt-2">
+              <span>Kantian · duty &amp; effort</span>
+              <span>Aristotelian · second nature</span>
+            </div>
+          </div>
+
+          <dl class="mt-5 grid grid-cols-3 gap-3 text-center">
+            <div class="stat"><dt class="stat-label">Logs · 30 days</dt><dd id="stat-count" class="stat-value">0</dd></div>
+            <div class="stat"><dt class="stat-label">Avg stage</dt><dd id="stat-avg" class="stat-value">—</dd></div>
+            <div class="stat"><dt class="stat-label">Last friction</dt><dd id="stat-friction" class="stat-value">—</dd></div>
+          </dl>
+        </section>
+
+        <!-- Charts -->
+        <section class="order-3 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2 gap-6">
+          <div class="card">
+            <h3 class="card-title text-base">Friction over time</h3>
+            <p class="card-sub">Weekly check-ins · lower is calmer</p>
+            <div class="relative h-56 mt-3">
+              <canvas id="friction-chart" aria-label="Line chart of weekly friction scores" role="img"></canvas>
+              <p id="friction-empty" class="empty-state">Complete a weekly check-in to start your trend line.</p>
+            </div>
+          </div>
+          <div class="card">
+            <h3 class="card-title text-base">Stages · last 30 days</h3>
+            <p class="card-sub">How your urges were met</p>
+            <div class="relative h-56 mt-3">
+              <canvas id="stage-chart" aria-label="Donut chart of logged stages in the last 30 days" role="img"></canvas>
+              <p id="stage-empty" class="empty-state">Your first daily log will appear here.</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- Recent entries -->
+        <section class="card order-5">
+          <div class="flex items-baseline justify-between">
+            <h3 class="card-title text-base">Recent reflections</h3>
+            <span id="recent-count" class="text-xs text-stone-500"></span>
+          </div>
+          <ul id="recent-list" class="mt-3 divide-y divide-stone-200"></ul>
+          <p id="recent-empty" class="text-sm text-stone-500 mt-3">Nothing logged yet. Every honest entry counts — including the hard ones.</p>
+        </section>
+      </div>
+    </div>
+
+    <!-- Data controls -->
+    <footer class="mt-10 pt-6 border-t border-stone-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-sm text-stone-500">
+      <p>Stored only in this browser. Export now and then to keep a backup.</p>
+      <div class="flex flex-wrap gap-2">
+        <button type="button" id="export-btn" class="btn-ghost">Export</button>
+        <label class="btn-ghost cursor-pointer">Import<input type="file" id="import-input" accept="application/json,.json" class="sr-only" /></label>
+        <button type="button" id="reset-btn" class="btn-ghost">Clear all data</button>
+      </div>
+    </footer>
+  </main>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script src="vendor/chart.umd.min.js"></script>
+  <script src="js/stages.js"></script>
+  <script src="js/storage.js"></script>
+  <script src="js/insights.js"></script>
+  <script src="js/charts.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
