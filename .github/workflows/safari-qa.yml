@@ -39,15 +39,28 @@ jobs:
           echo "iPhone 17 · iOS $IOS · $UDID" | tee results/device.txt
           xcrun simctl boot "$UDID" || true
           xcrun simctl bootstatus "$UDID" -b
+          # A visible Simulator.app registers the devices:// handler safaridriver needs; then warm up Safari once.
+          open "$(xcode-select -p)/Applications/Simulator.app" --args -CurrentDeviceUDID "$UDID"
+          sleep 20
+          xcrun simctl launch "$UDID" com.apple.mobilesafari || true
+          sleep 20
 
       - name: Screenshot each tab in Mobile Safari (light and dark)
         continue-on-error: true
         run: |
           mkdir -p results/safari
+          open_url() {
+            for i in 1 2 3; do
+              xcrun simctl openurl "$UDID" "$1" && return 0
+              echo "openurl attempt $i failed; retrying"
+              sleep 15
+            done
+            return 1
+          }
           for scheme in light dark; do
             xcrun simctl ui "$UDID" appearance "$scheme"
             for tab in today script progress foundations; do
-              xcrun simctl openurl "$UDID" "${URL}?qa=${scheme}-${tab}#${tab}"
+              open_url "${URL}?qa=${scheme}-${tab}#${tab}" || continue
               sleep 10
               xcrun simctl io "$UDID" screenshot "results/safari/${scheme}-${tab}.png"
             done
@@ -65,7 +78,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
 
       - name: WebKit interaction suite at 402×874
         continue-on-error: true
