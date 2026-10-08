@@ -38,6 +38,16 @@
     "Philippians 4:8": "Finally, brothers, whatever things are true, whatever things are honorable, whatever things are just, whatever things are pure, whatever things are lovely, whatever things are of good report: if there is any virtue and if there is any praise, think about these things.",
     "Psalm 119:11": "I have hidden your word in my heart, that I might not sin against you.",
     "1 Timothy 4:7b-8": "Exercise yourself toward godliness. For bodily exercise has some value, but godliness has value in all things, having the promise of the life which is now, and of that which is to come.",
+    // The seven capital vices and their contrary virtues (Why tab)
+    "Proverbs 16:18": "Pride goes before destruction, and an arrogant spirit before a fall.",
+    "Micah 6:8": "He has shown you, O man, what is good. What does Yahweh require of you, but to act justly, to love mercy, and to walk humbly with your God?",
+    "Proverbs 14:30": "The life of the body is a heart at peace, but envy rots the bones.",
+    "Romans 12:15": "Rejoice with those who rejoice. Weep with those who weep.",
+    "Ephesians 4:31": "Let all bitterness, wrath, anger, outcry, and slander be put away from you, with all malice.",
+    "Luke 12:15": "He said to them, “Beware! Keep yourselves from covetousness, for a man’s life doesn’t consist of the abundance of the things which he possesses.”",
+    "2 Corinthians 9:7": "Let each man give according as he has determined in his heart, not grudgingly or under compulsion, for God loves a cheerful giver.",
+    "1 John 2:16": "For all that is in the world, the lust of the flesh, the lust of the eyes, and the pride of life, isn’t the Father’s, but is the world’s.",
+    "Matthew 5:8": "Blessed are the pure in heart, for they shall see God.",
   };
 
   // Where each verse is used, and why.

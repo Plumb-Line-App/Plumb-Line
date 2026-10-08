@@ -1,6 +1,6 @@
 // Offline support: serve cached files instantly, refresh them in the background.
 // Bump VERSION when shipping changes so old caches are cleared.
-const VERSION = 'vt-v5';
+const VERSION = 'vt-v6';
 const CORE = [
   './',
   'index.html',
