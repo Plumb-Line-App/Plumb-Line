@@ -4,9 +4,9 @@
 
 A private, single-page app for tracking the shift from a **Kantian phase** (willpower, restriction, fighting the pull) to an **Aristotelian phase** (right action as second nature) across several virtues:
 
-- **Temperance** · with food
+- **Self-control** · with food (classically, temperance)
 - **Patience** · with the kids
-- **Diligence** · with work & tasks
+- **Follow-through** · with work & tasks (classically, diligence)
 
 Scripture is built in at the moments it matters, not added as decoration.
 
@@ -40,11 +40,11 @@ Two themes that follow the phone's light/dark setting: **Morning Light** (warm p
 - **Crowding out** — weekly good acts vs. urges & slips. Good acts count toward the phase marker.
 - **What did you actually need?** — each pull or slip can name the need underneath (rest, comfort, calm, clarity…). For a pull, the app suggests your good acts that meet that need, sorted by what has helped most.
 - **If-then plans** — "When ___, I will ___", per virtue, with an "I did it" that logs the act.
-- **Slips & repair** — one tap on *A Slip* logs it, starts the window and opens the Honest Script with words ready. What happened and what you do next are separate. Temperance repairs with your spouse; Patience with the kids and/or your spouse (both can be recorded); Diligence has no repair step, just a fresh start. Any repair is a double victory.
+- **Slips & repair** — one tap on *A Slip* logs it, starts the window and opens the Honest Script with words ready. What happened and what you do next are separate. Self-control repairs with your spouse; Patience with the kids and/or your spouse (both can be recorded); Follow-through has no repair step, just a fresh start. Any repair is a double victory.
 - **Honesty / repair window** — an un-repaired slip starts a 15-minute countdown (survives reloads; shows in the tab title).
 - **Fear vs. reality** — the prediction is saved before the conversation; the outcome is recorded after.
 - **Scripture** — anchor verses per virtue (verse for today), plus verses at specific moments: the window (Prov 28:13), repair (Jas 5:16, Eph 4:32), a slip (Rom 8:1), a fresh start (Lam 3:22–23), good acts (Rom 12:21, Gal 6:9), needs (Matt 11:28–30, Ps 34:18, 2 Cor 12:9), weekly feedback, and Foundations. Text is the World English Bible (public domain), extracted verbatim; every verse links to the NIV on BibleGateway. All verses live in `js/scripture.js`, keyed by reference, so the translation can be swapped in one file.
-- **Data** — everything lives in `localStorage` in this browser only. Export/Import (JSON) for backups. Older saved data (food-only versions) migrates automatically into Temperance.
+- **Data** — everything lives in `localStorage` in this browser only. Export/Import (JSON) for backups. Older saved data (food-only versions) migrates automatically into Self-control. Internally the virtues keep their original ids (`temperance`, `patience`, `diligence`), so renaming them never touches saved data.
 
 ## Structure
 

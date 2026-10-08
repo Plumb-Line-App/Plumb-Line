@@ -9,6 +9,7 @@
   };
 
   VT.VERSES = {
+    "Philippians 4:11": "Not that I speak because of lack, for I have learned in whatever state I am, to be content in it.",
     "Amos 7:7": "Thus he showed me and behold, the Lord stood beside a wall made by a plumb line, with a plumb line in his hand.",
     "1 Corinthians 10:13": "No temptation has taken you except what is common to man. God is faithful, who will not allow you to be tempted above what you are able, but will with the temptation also make the way of escape, that you may be able to endure it.",
     "1 Corinthians 6:12": "“All things are lawful for me,” but not all things are expedient. “All things are lawful for me,” but I will not be brought under the power of anything.",

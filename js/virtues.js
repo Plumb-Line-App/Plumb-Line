@@ -5,7 +5,7 @@
   VT.VIRTUES = [
     {
       id: 'temperance',
-      name: 'Temperance',
+      name: 'Self-control', // classically, temperance
       area: 'with food',
       color: 'var(--v-temperance)',
       dash: '',
@@ -69,7 +69,7 @@
     },
     {
       id: 'diligence',
-      name: 'Diligence',
+      name: 'Follow-through', // classically, diligence
       area: 'with work & tasks',
       color: 'var(--v-diligence)',
       dash: '2 4',

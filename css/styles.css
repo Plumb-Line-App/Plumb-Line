@@ -452,6 +452,7 @@ input[type="date"].field::-webkit-date-and-time-value { text-align: left; }
 .vice-body > * + * { margin-top: .5rem; }
 .vice-label { font-size: .6875rem; text-transform: uppercase; letter-spacing: .05em; color: var(--dim); font-weight: 600; margin-top: .75rem; }
 .vice-label-virtue { color: var(--mint); }
+.vice-body > .vice-classic { margin-top: .1rem; font-size: .75rem; font-style: italic; color: var(--dim); }
 
 #journey-filter { display: flex; width: 100%; }
 #journey-filter button { flex: 1 1 auto; padding-left: .55rem; padding-right: .55rem; }
@@ -459,3 +460,5 @@ input[type="date"].field::-webkit-date-and-time-value { text-align: left; }
 @media (min-width: 640px) { #journey-filter { display: inline-flex; width: auto; } #journey-filter button { padding-left: .95rem; padding-right: .95rem; } }
 .field-label:not(.flex) { display: block; }
 #victory-title:focus { outline: none; }
+/* Virtue names differ in length ("Follow-through"); size each option to its label rather than equal thirds. */
+#virtue-seg { grid-auto-columns: auto; }
