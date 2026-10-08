@@ -320,7 +320,9 @@ input[type="date"].field::-webkit-date-and-time-value { text-align: left; }
 .ring-label { font-size: .6875rem; color: var(--mist); margin-top: .25rem; }
 .breath-cue { margin-top: .5rem; font-size: .75rem; font-weight: 500; color: var(--twilight); transition: opacity .3s; min-height: 1rem; }
 #window-card:not([data-state="running"]) .ring-breath, #window-card:not([data-state="running"]) .breath-cue { display: none; }
-#window-card[data-state="closed"] .ring-bar { stroke: var(--dim); }
+/* An empty arc would still draw its rounded cap as a dot. */
+#window-card[data-state="none"] .ring-bar, #window-card[data-state="closed"] .ring-bar { opacity: 0; }
+#window-card[data-state="done"] .ring-bar { stroke: var(--mint); }
 
 .preview-panel { background: radial-gradient(120% 80% at 0% 0%, var(--twilight-tint), transparent 55%), var(--panel); }
 .script-text {

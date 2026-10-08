@@ -1,0 +1,91 @@
+# Checks the live site in real Mobile Safari on an iPhone 17 simulator, plus a WebKit interaction suite.
+# Run it from the Actions tab (or the API); results are pushed to the qa-results branch and kept as an artifact.
+name: Safari QA (iPhone 17)
+
+on:
+  workflow_dispatch:
+    inputs:
+      url:
+        description: Site to test
+        default: https://dmvanblaircom.github.io/Virtue-Tracker/
+
+permissions:
+  contents: write
+
+concurrency:
+  group: safari-qa
+  cancel-in-progress: true
+
+jobs:
+  safari:
+    runs-on: macos-26
+    timeout-minutes: 45
+    env:
+      URL: ${{ inputs.url || 'https://dmvanblaircom.github.io/Virtue-Tracker/' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use the newest Xcode
+        run: |
+          X=$(ls -d /Applications/Xcode_*.app | sort -V | tail -1)
+          sudo xcode-select -s "$X"
+          xcodebuild -version
+          mkdir -p results
+
+      - name: Boot an iPhone 17 simulator
+        run: |
+          read UDID IOS < <(python3 tests/safari/pick_sim.py)
+          echo "UDID=$UDID" >> "$GITHUB_ENV"
+          echo "iPhone 17 · iOS $IOS · $UDID" | tee results/device.txt
+          xcrun simctl boot "$UDID" || true
+          xcrun simctl bootstatus "$UDID" -b
+
+      - name: Screenshot each tab in Mobile Safari (light and dark)
+        continue-on-error: true
+        run: |
+          mkdir -p results/safari
+          for scheme in light dark; do
+            xcrun simctl ui "$UDID" appearance "$scheme"
+            for tab in today script progress foundations; do
+              xcrun simctl openurl "$UDID" "${URL}?qa=${scheme}-${tab}#${tab}"
+              sleep 10
+              xcrun simctl io "$UDID" screenshot "results/safari/${scheme}-${tab}.png"
+            done
+          done
+          xcrun simctl ui "$UDID" appearance light
+
+      - name: Drive Mobile Safari with safaridriver
+        continue-on-error: true
+        run: |
+          sudo safaridriver --enable || true
+          xcrun simctl spawn "$UDID" defaults write com.apple.mobilesafari WebDriverEnabled -bool YES || true
+          xcrun simctl spawn "$UDID" defaults write com.apple.WebDriver.plist RemoteAutomationEnabled -bool YES || true
+          python3 -m pip install --quiet --break-system-packages selenium || python3 -m pip install --quiet selenium
+          OUT=results/webdriver python3 tests/safari/webdriver_check.py 2>&1 | tee results/webdriver.txt
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: WebKit interaction suite at 402×874
+        continue-on-error: true
+        run: |
+          npm install --no-save --no-package-lock playwright@latest
+          npx playwright install webkit
+          BASE="$URL" OUT=results/webkit BROWSER=webkit node tests/safari/run.js 2>&1 | tee results/webkit.txt
+
+      - name: Keep the results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: safari-qa
+          path: results
+
+      - name: Publish results to the qa-results branch
+        if: always()
+        run: |
+          cd results
+          git init -q -b qa-results
+          git add -A
+          git -c user.name="qa-bot" -c user.email="qa-bot@users.noreply.github.com" commit -q -m "Safari QA $(date -u +%FT%TZ) for ${GITHUB_SHA::7}"
+          git push -q -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}" qa-results
