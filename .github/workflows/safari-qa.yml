@@ -71,6 +71,11 @@ jobs:
         continue-on-error: true
         run: |
           sudo safaridriver --enable || true
+          # safaridriver finds the simulator through Simulator.app's devices:// URL handler; register it explicitly.
+          LSREG=/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister
+          "$LSREG" -f "$(xcode-select -p)/Applications/Simulator.app" || true
+          "$LSREG" -dump 2>/dev/null | grep -m3 -i "devices:" || echo "no devices:// handler listed"
+          sudo xcode-select -p
           xcrun simctl spawn "$UDID" defaults write com.apple.mobilesafari WebDriverEnabled -bool YES || true
           xcrun simctl spawn "$UDID" defaults write com.apple.WebDriver.plist RemoteAutomationEnabled -bool YES || true
           python3 -m pip install --quiet --break-system-packages selenium || python3 -m pip install --quiet selenium

@@ -20,7 +20,15 @@ opts = webdriver.SafariOptions()
 opts.set_capability("platformName", "iOS")
 opts.set_capability("safari:useSimulator", True)
 opts.set_capability("safari:deviceUDID", os.environ["UDID"])
-d = webdriver.Safari(options=opts)
+try:
+    d = webdriver.Safari(options=opts)
+except Exception as first:  # some safaridriver builds only match by device type
+    print("UDID match failed, retrying by device type:", str(first).splitlines()[0])
+    opts = webdriver.SafariOptions()
+    opts.set_capability("platformName", "iOS")
+    opts.set_capability("safari:useSimulator", True)
+    opts.set_capability("safari:deviceType", "iPhone")
+    d = webdriver.Safari(options=opts)
 try:
     d.get(URL + "#today")
     time.sleep(4)
