@@ -677,7 +677,9 @@
   // On desktop the floating nav sits at the top, so pinned titles sit just below it.
   function navOffset() {
     const r = document.querySelector('.nav').getBoundingClientRect();
-    return r.top < window.innerHeight / 2 ? Math.ceil(r.bottom + 8) : 0;
+    if (r.top >= window.innerHeight / 2) return 0;
+    const base = document.querySelector('.nav-scrim').getBoundingClientRect();
+    return Math.ceil(Math.max(r.bottom + 8, base.bottom));
   }
 
   // Height covered by pinned title bars above a section: the desktop nav, plus an open parent section.
@@ -791,6 +793,10 @@
       VT.store.reload();
       render();
     });
+    // The desktop nav's base only shows once content has scrolled under it.
+    const onScroll = () => document.documentElement.classList.toggle('scrolled', window.scrollY > 4);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    onScroll();
     // iOS only shows :active pressed states when a touch listener exists.
     document.addEventListener('touchstart', () => {}, { passive: true });
 
