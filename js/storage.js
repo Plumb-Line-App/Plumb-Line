@@ -1,7 +1,7 @@
-// LocalStorage persistence. One versioned key holds both collections.
+// LocalStorage persistence. One versioned key holds logs, weekly check-ins and settings.
 (function () {
   const KEY = 'virtue-tracker:v1';
-  const empty = () => ({ version: 1, logs: [], weeklies: [] });
+  const empty = () => ({ version: 2, logs: [], weeklies: [], settings: { spouseName: '' } });
 
   function load() {
     try {
@@ -25,21 +25,36 @@
   }
 
   const isDateKey = (v) => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v);
+  const score10 = (v) => (Number(v) >= 1 && Number(v) <= 10 ? Number(v) : null);
+  const num = (v) => (Number.isFinite(Number(v)) && v !== null && v !== '' ? Number(v) : null);
 
-  // Accepts imported or stored data and keeps only well-formed records.
+  function sanitizeLog(l) {
+    const kind = l.kind === 'slip' ? 'slip' : 'urge';
+    return {
+      id: String(l.id || VT.uid()),
+      date: l.date,
+      kind,
+      stage: kind === 'urge' ? Number(l.stage) : null,
+      note: typeof l.note === 'string' ? l.note.slice(0, 1000) : '',
+      createdAt: Number(l.createdAt) || Date.now(),
+      // Honesty fields (slips only)
+      disclosed: kind === 'slip' && !!l.disclosed,
+      disclosedAt: kind === 'slip' ? num(l.disclosedAt) : null,
+      windowEndsAt: kind === 'slip' ? num(l.windowEndsAt) : null,
+      windowDismissed: !!l.windowDismissed,
+      predicted: kind === 'slip' ? score10(l.predicted) : null,
+      actual: kind === 'slip' ? score10(l.actual) : null,
+    };
+  }
+
+  // Accepts imported or stored data (v1 or v2) and keeps only well-formed records.
   function sanitize(data) {
     const out = empty();
     if (!data || typeof data !== 'object') return out;
     if (Array.isArray(data.logs)) {
       out.logs = data.logs
-        .filter((l) => l && isDateKey(l.date) && [1, 2, 3, 4].includes(Number(l.stage)))
-        .map((l) => ({
-          id: String(l.id || VT.uid()),
-          date: l.date,
-          stage: Number(l.stage),
-          note: typeof l.note === 'string' ? l.note.slice(0, 1000) : '',
-          createdAt: Number(l.createdAt) || Date.now(),
-        }));
+        .filter((l) => l && isDateKey(l.date) && (l.kind === 'slip' || [1, 2, 3, 4].includes(Number(l.stage))))
+        .map(sanitizeLog);
     }
     if (Array.isArray(data.weeklies)) {
       out.weeklies = data.weeklies
@@ -54,6 +69,9 @@
           createdAt: Number(w.createdAt) || Date.now(),
         }));
     }
+    if (data.settings && typeof data.settings.spouseName === 'string') {
+      out.settings.spouseName = data.settings.spouseName.trim().slice(0, 40);
+    }
     return out;
   }
 
@@ -66,11 +84,30 @@
   VT.store = {
     logs: () => [...state.logs].sort(byLogOrder),
     weeklies: () => [...state.weeklies].sort(byWeekOrder),
+    getLog: (id) => state.logs.find((l) => l.id === id) || null,
+    settings: () => ({ ...state.settings }),
 
-    addLog({ date, stage, note }) {
-      const entry = { id: VT.uid(), date, stage: Number(stage), note: note.trim(), createdAt: Date.now() };
+    // Urge: { date, kind:'urge', stage, note }. Slip: { date, kind:'slip', note, disclosed, predicted, actual }.
+    addLog(input) {
+      const now = Date.now();
+      const isSlip = input.kind === 'slip';
+      const entry = sanitizeLog({
+        ...input,
+        id: VT.uid(),
+        note: (input.note || '').trim(),
+        createdAt: now,
+        disclosedAt: isSlip && input.disclosed ? now : null,
+        windowEndsAt: isSlip && !input.disclosed ? now + VT.HONESTY_WINDOW_MS : null,
+        actual: isSlip && input.disclosed ? input.actual : null,
+      });
       state.logs.push(entry);
       return save() ? entry : null;
+    },
+    updateLog(id, patch) {
+      const i = state.logs.findIndex((l) => l.id === id);
+      if (i < 0) return null;
+      state.logs[i] = sanitizeLog({ ...state.logs[i], ...patch });
+      return save() ? state.logs[i] : null;
     },
     deleteLog(id) {
       state.logs = state.logs.filter((l) => l.id !== id);
@@ -91,6 +128,11 @@
       return save() ? entry : null;
     },
 
+    setSpouseName(name) {
+      state.settings.spouseName = String(name || '').trim().slice(0, 40);
+      save();
+    },
+
     exportJSON: () => JSON.stringify({ ...state, exportedAt: new Date().toISOString() }, null, 2),
     importJSON(text) {
       const next = sanitize(JSON.parse(text));
@@ -99,7 +141,9 @@
       return { logs: next.logs.length, weeklies: next.weeklies.length };
     },
     clear() {
+      const keep = state.settings;
       state = empty();
+      state.settings = keep;
       save();
     },
   };

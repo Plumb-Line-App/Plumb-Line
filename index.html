@@ -6,7 +6,6 @@
   <title>Virtue Tracker</title>
   <meta name="description" content="From Friction to Freedom — track the shift from willpower to second nature in your relationship with food." />
   <meta name="theme-color" content="#f5f3ef" />
-
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,500;8..60,600&display=swap" rel="stylesheet" />
@@ -17,22 +16,46 @@
 
   <!-- Header -->
   <header class="border-b border-stone-200 bg-stone-50/80 backdrop-blur sticky top-0 z-20">
-    <div class="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-4">
-      <div class="min-w-0">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 py-2 sm:py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-4">
+      <div class="min-w-0 flex items-baseline gap-2 sm:block">
         <h1 class="font-serif text-lg sm:text-xl font-semibold text-stone-800 leading-tight">Virtue Tracker</h1>
         <p class="text-xs sm:text-sm text-stone-500 truncate">From Friction to Freedom</p>
       </div>
-      <nav class="flex items-center gap-1 text-sm" aria-label="Sections">
+      <nav class="flex items-center gap-0.5 sm:gap-1 text-sm -mx-2.5 sm:mx-0 overflow-x-auto" aria-label="Sections">
         <a href="#log" class="nav-link">Log</a>
+        <a href="#script" class="nav-link">Script</a>
         <a href="#progress" class="nav-link">Progress</a>
         <a href="#weekly" class="nav-link">Weekly</a>
+        <a href="#foundations" class="nav-link">Why</a>
       </nav>
     </div>
   </header>
 
   <main class="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
-    <!-- On mobile the two columns dissolve (display: contents) and `order` sets a log-first flow.
-         On desktop: forms on the left, progress on the right. -->
+
+    <!-- Moment banner: honesty window (running / closed) or a double-victory celebration. -->
+    <section id="moment" class="moment hidden mb-6 scroll-mt-24" aria-live="polite">
+      <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+        <div class="min-w-0">
+          <p id="moment-eyebrow" class="text-xs uppercase tracking-wide font-medium"></p>
+          <h2 id="moment-title" class="font-serif text-2xl text-stone-800 mt-1"></h2>
+          <p id="moment-body" class="mt-2 text-stone-600 leading-relaxed max-w-2xl"></p>
+          <p id="moment-extra" class="mt-2 text-sm text-stone-600"></p>
+        </div>
+        <div id="moment-timer" class="font-serif text-5xl sm:text-6xl text-stone-800 tabular-nums shrink-0" aria-label="Time left in honesty window"></div>
+      </div>
+      <div id="moment-bar-wrap" class="mt-4 h-1.5 rounded-full bg-white/70 overflow-hidden">
+        <div id="moment-bar" class="h-full bg-mist-500 transition-[width] duration-1000 ease-linear" style="width:100%"></div>
+      </div>
+      <div class="mt-5 flex flex-wrap gap-2">
+        <button type="button" id="moment-told" class="btn-primary"></button>
+        <a href="#script" id="moment-script" class="btn-ghost">Help me say it</a>
+        <button type="button" id="moment-dismiss" class="btn-ghost"></button>
+      </div>
+    </section>
+
+    <!-- On mobile the two columns dissolve (display: contents) and `order` sets the flow.
+         On desktop: actions on the left, progress on the right. -->
     <div class="flex flex-col gap-6 lg:grid lg:grid-cols-12 lg:items-start">
 
       <!-- LEFT COLUMN -->
@@ -44,14 +67,77 @@
             <h2 class="card-title">Daily Reflection</h2>
             <input type="date" id="log-date" class="text-sm text-stone-500 bg-transparent border-0 p-0 focus:ring-0 text-right" aria-label="Date of this reflection" />
           </div>
-          <p class="card-sub">An urge came up. Where were you on the path?</p>
+          <p class="card-sub">Something came up. Tell it straight — every honest entry counts.</p>
 
           <form id="log-form" class="mt-4 space-y-4" novalidate>
             <fieldset>
+              <legend class="field-label">What happened?</legend>
+              <div class="mt-2 grid grid-cols-2 gap-2">
+                <label class="choice">
+                  <input type="radio" name="kind" value="urge" class="sr-only" checked />
+                  <span class="choice-body">
+                    <span class="block font-medium text-stone-800">I met an urge</span>
+                    <span class="block text-xs text-stone-500 mt-0.5">Place it on the 4-stage scale</span>
+                  </span>
+                </label>
+                <label class="choice">
+                  <input type="radio" name="kind" value="slip" class="sr-only" />
+                  <span class="choice-body">
+                    <span class="block font-medium text-stone-800">I slipped</span>
+                    <span class="block text-xs text-stone-500 mt-0.5">The truth still gets a win</span>
+                  </span>
+                </label>
+              </div>
+            </fieldset>
+
+            <!-- Urge path -->
+            <fieldset id="urge-fields">
               <legend class="sr-only">Active stage</legend>
               <div id="stage-options" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2 gap-2"></div>
-              <p id="stage-error" class="hidden mt-2 text-sm text-mist-700">Choose the stage that fits best — there's no wrong answer.</p>
+              <p id="stage-error" class="hidden mt-2 text-sm text-mist-700">Pick whichever stage feels closest. There’s no wrong answer here.</p>
             </fieldset>
+
+            <!-- Slip path: the food moment and the honesty choice are separate questions. -->
+            <div id="slip-fields" class="hidden space-y-4">
+              <div class="rounded-xl bg-stone-50 border border-stone-200 p-4 text-sm leading-relaxed text-stone-600">
+                A slip is one moment, not a verdict on you. There are two separate questions here: what happened with food,
+                and what you do next with the truth. <span class="text-stone-800 font-medium">The second one is the bigger win.</span>
+              </div>
+
+              <label class="choice">
+                <input type="checkbox" id="slip-disclosed" class="sr-only" />
+                <span class="choice-body flex items-start gap-3">
+                  <span class="checkmark" aria-hidden="true"></span>
+                  <span>
+                    <span class="block font-medium text-stone-800">I have disclosed this to <span data-spouse="my">my spouse</span></span>
+                    <span class="block text-xs text-stone-500 mt-0.5">Telling the truth is a full victory on its own — whatever happened with food.</span>
+                  </span>
+                </span>
+              </label>
+
+              <div>
+                <div class="flex items-baseline justify-between gap-3">
+                  <label for="slip-predicted" id="slip-predicted-label" class="field-label">Before you tell <span data-spouse="them">them</span>: how hard do you expect it to go?</label>
+                  <output id="slip-predicted-out" class="font-serif text-2xl text-stone-800 tabular-nums">5</output>
+                </div>
+                <input type="range" id="slip-predicted" min="1" max="10" step="1" value="5" class="slider w-full mt-2" data-out="slip-predicted-out" />
+              </div>
+
+              <div id="slip-actual-row" class="hidden">
+                <div class="flex items-baseline justify-between gap-3">
+                  <label for="slip-actual" class="field-label">How did it actually go?</label>
+                  <output id="slip-actual-out" class="font-serif text-2xl text-stone-800 tabular-nums">5</output>
+                </div>
+                <input type="range" id="slip-actual" min="1" max="10" step="1" value="5" class="slider w-full mt-2" data-out="slip-actual-out" />
+              </div>
+
+              <div class="flex justify-between text-xs text-stone-500">
+                <span>1 · We felt closer</span>
+                <span>10 · Serious rupture</span>
+              </div>
+
+              <p id="slip-window-note" class="text-sm text-mist-700">Saving starts a 15-minute honesty window. The urge to hide is loudest right after — you won’t have to face it alone.</p>
+            </div>
 
             <div>
               <label for="log-note" class="field-label">Context notes</label>
@@ -62,8 +148,63 @@
           </form>
         </section>
 
+        <!-- Disclosure Script Generator -->
+        <section id="script" class="card order-2 scroll-mt-24">
+          <h2 class="card-title">Disclosure Script</h2>
+          <p class="card-sub">The hardest part is the first sentence. Here’s one you can send as-is.</p>
+
+          <div class="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div class="sm:col-span-2">
+              <label for="spouse-name" class="field-label">Their name <span class="font-normal text-stone-500">(optional, saved on this device)</span></label>
+              <input type="text" id="spouse-name" maxlength="40" autocomplete="off" class="field mt-1" placeholder="e.g. Sarah" />
+            </div>
+            <div>
+              <label for="script-what" class="field-label">What happened</label>
+              <select id="script-what" class="field mt-1">
+                <option value="more">I ate more than I meant to</option>
+                <option value="escape">I ate to get away from a hard feeling</option>
+                <option value="secret">I ate in secret</option>
+                <option value="hid">I hid food from you</option>
+                <option value="nearly">I almost kept a slip from you</option>
+                <option value="custom">Something else…</option>
+              </select>
+              <input type="text" id="script-what-custom" maxlength="140" class="field mt-2 hidden" placeholder="I …" aria-label="Describe what happened" />
+            </div>
+            <div>
+              <label for="script-feeling" class="field-label">What I was feeling</label>
+              <select id="script-feeling" class="field mt-1">
+                <option value="down">Down / heavy</option>
+                <option value="stressed">Stressed</option>
+                <option value="lonely">Lonely</option>
+                <option value="tired">Worn out</option>
+                <option value="anxious">Anxious</option>
+                <option value="numb">Numb</option>
+                <option value="unsure">Not sure</option>
+              </select>
+            </div>
+            <div class="sm:col-span-2">
+              <label for="script-need" class="field-label">What would help</label>
+              <select id="script-need" class="field mt-1">
+                <option value="nothing">Nothing — I just don’t want to hide it</option>
+                <option value="listen">Just listen</option>
+                <option value="hug">A hug</option>
+                <option value="plan">Help thinking through tomorrow</option>
+              </select>
+            </div>
+          </div>
+
+          <label for="script-output" class="sr-only">Your message</label>
+          <textarea id="script-output" rows="6" class="field mt-4 font-serif text-[1.05rem] leading-relaxed"></textarea>
+
+          <div class="mt-3 flex flex-wrap gap-2">
+            <button type="button" id="script-copy" class="btn-primary">Copy message</button>
+            <button type="button" id="script-share" class="btn-ghost hidden">Share…</button>
+            <button type="button" id="script-next" class="btn-ghost">Say it another way</button>
+          </div>
+        </section>
+
         <!-- Weekly Check-In -->
-        <section id="weekly" class="card order-4 scroll-mt-24">
+        <section id="weekly" class="card order-6 scroll-mt-24">
           <div class="flex items-baseline justify-between gap-3">
             <h2 class="card-title">Weekly Check-In</h2>
             <span id="weekly-due" class="text-xs text-stone-500"></span>
@@ -81,7 +222,7 @@
                 <label for="friction" class="field-label">Internal friction</label>
                 <output id="friction-out" for="friction" class="font-serif text-2xl text-stone-800 tabular-nums">5</output>
               </div>
-              <input type="range" id="friction" min="1" max="10" step="1" value="5" class="slider w-full mt-2" aria-describedby="friction-scale" />
+              <input type="range" id="friction" min="1" max="10" step="1" value="5" class="slider w-full mt-2" data-out="friction-out" aria-describedby="friction-scale" />
               <div id="friction-scale" class="flex justify-between text-xs text-stone-500 mt-1">
                 <span>1 · Effortless</span>
                 <span>10 · Exhausting battle</span>
@@ -92,14 +233,14 @@
               <legend class="field-label">Where did your energy go?</legend>
               <div class="mt-2 grid grid-cols-2 gap-2">
                 <label class="choice">
-                  <input type="radio" name="energy" value="restriction" class="sr-only peer" />
+                  <input type="radio" name="energy" value="restriction" class="sr-only" />
                   <span class="choice-body">
                     <span class="block font-medium text-stone-800">Not doing wrong</span>
                     <span class="block text-xs text-stone-500 mt-0.5">Mostly holding back</span>
                   </span>
                 </label>
                 <label class="choice">
-                  <input type="radio" name="energy" value="initiation" class="sr-only peer" />
+                  <input type="radio" name="energy" value="initiation" class="sr-only" />
                   <span class="choice-body">
                     <span class="block font-medium text-stone-800">Doing right</span>
                     <span class="block text-xs text-stone-500 mt-0.5">Mostly reaching toward good</span>
@@ -126,7 +267,7 @@
               <textarea id="weekly-note" rows="3" maxlength="2000" class="field mt-1" placeholder="What helped? What was hard? What do you want to carry into next week?"></textarea>
             </div>
 
-            <p id="weekly-error" class="hidden text-sm text-mist-700">Pick where your energy went and how you met yourself to finish the check-in.</p>
+            <p id="weekly-error" class="hidden text-sm text-mist-700">Two more answers and you’re done: where your energy went, and how you met yourself.</p>
             <button type="submit" class="btn-primary w-full">Complete Check-In</button>
           </form>
 
@@ -141,7 +282,7 @@
       <div class="contents lg:flex lg:flex-col lg:gap-6 lg:col-span-7">
 
         <!-- Insight widget -->
-        <section id="progress" class="card order-2 scroll-mt-24" aria-live="polite">
+        <section id="progress" class="card order-3 scroll-mt-24" aria-live="polite">
           <p class="text-xs uppercase tracking-wide text-stone-500 font-medium">Virtue Stage Insight</p>
           <h2 id="insight-phase" class="font-serif text-2xl text-stone-800 mt-1"></h2>
           <p id="insight-message" class="mt-2 text-stone-600 leading-relaxed"></p>
@@ -164,8 +305,31 @@
           </dl>
         </section>
 
+        <!-- Honesty: double victories + fear vs. reality -->
+        <section id="honesty" class="card order-4">
+          <p class="text-xs uppercase tracking-wide text-stone-500 font-medium">Honesty</p>
+          <h2 class="font-serif text-2xl text-stone-800 mt-1">Double victories</h2>
+          <p id="honesty-message" class="mt-2 text-stone-600 leading-relaxed"></p>
+
+          <dl class="mt-5 grid grid-cols-3 gap-3 text-center">
+            <div class="stat"><dt class="stat-label">Slips · 30 days</dt><dd id="stat-slips" class="stat-value">0</dd></div>
+            <div class="stat"><dt class="stat-label">Shared</dt><dd id="stat-shared" class="stat-value">0</dd></div>
+            <div class="stat"><dt class="stat-label">Honesty streak</dt><dd id="stat-streak" class="stat-value">0</dd></div>
+          </dl>
+
+          <div class="mt-6">
+            <h3 class="card-title text-base">Fear vs. reality</h3>
+            <p class="card-sub">What you braced for vs. what actually happened · lower is gentler</p>
+            <div class="relative h-56 mt-3">
+              <canvas id="fear-chart" aria-label="Bar chart comparing predicted and actual fallout for each disclosure" role="img"></canvas>
+              <p id="fear-empty" class="empty-state">After your first disclosure, your prediction and the real outcome will sit side by side here.</p>
+            </div>
+            <p id="fear-summary" class="mt-3 text-sm text-stone-600 leading-relaxed"></p>
+          </div>
+        </section>
+
         <!-- Charts -->
-        <section class="order-3 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2 gap-6">
+        <section class="order-5 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2 gap-6">
           <div class="card">
             <h3 class="card-title text-base">Friction over time</h3>
             <p class="card-sub">Weekly check-ins · lower is calmer</p>
@@ -175,17 +339,17 @@
             </div>
           </div>
           <div class="card">
-            <h3 class="card-title text-base">Stages · last 30 days</h3>
-            <p class="card-sub">How your urges were met</p>
+            <h3 class="card-title text-base">Last 30 days</h3>
+            <p class="card-sub">How urges were met</p>
             <div class="relative h-56 mt-3">
-              <canvas id="stage-chart" aria-label="Donut chart of logged stages in the last 30 days" role="img"></canvas>
+              <canvas id="stage-chart" aria-label="Donut chart of logged stages and slips in the last 30 days" role="img"></canvas>
               <p id="stage-empty" class="empty-state">Your first daily log will appear here.</p>
             </div>
           </div>
         </section>
 
         <!-- Recent entries -->
-        <section class="card order-5">
+        <section class="card order-7">
           <div class="flex items-baseline justify-between">
             <h3 class="card-title text-base">Recent reflections</h3>
             <span id="recent-count" class="text-xs text-stone-500"></span>
@@ -195,6 +359,102 @@
         </section>
       </div>
     </div>
+
+    <!-- Foundations: the ideas the app is built on -->
+    <section id="foundations" class="mt-10 scroll-mt-24">
+      <p class="text-xs uppercase tracking-wide text-stone-500 font-medium">Foundations</p>
+      <h2 class="font-serif text-2xl sm:text-3xl text-stone-800 mt-1">Why the fight is supposed to get easier</h2>
+      <p class="mt-2 text-stone-600 leading-relaxed max-w-3xl">
+        Effort is involved in both holding back and reaching forward — but they are different kinds of effort.
+        Philosophy and psychology land in the same place: white-knuckled restriction is a stage you pass through, not where you’re meant to live.
+      </p>
+
+      <div class="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <details class="card foundation" open>
+          <summary>The Kantian view — duty and active resistance</summary>
+          <div class="foundation-body">
+            <p>Immanuel Kant held that an action has moral worth when it is done <em>from duty</em> — because it is right — rather than from inclination.
+              His sharpest example is the person who wants to do wrong and refrains purely because it is wrong: there, the motive is unmistakably duty.</p>
+            <ul>
+              <li><strong>The effort of restriction.</strong> Choosing right against a strong pull shows that duty, not desire, is steering.</li>
+              <li><strong>The paradox.</strong> Read this way, the person who struggles hard and still holds the line is displaying real moral strength.</li>
+            </ul>
+            <p class="foundation-note">Worth knowing: for Kant the worth comes from the <em>motive</em>, not the struggle itself, and he also urged cultivating virtue so that duty grows easier over time. The struggle is evidence of duty, not the goal.</p>
+          </div>
+        </details>
+
+        <details class="card foundation" open>
+          <summary>The Aristotelian view — virtue and harmony</summary>
+          <div class="foundation-body">
+            <p>Aristotle argued that the goal is a character in which doing right becomes second nature. Virtue is built by practice — “we become just by doing just acts” — until reason and desire agree.</p>
+            <ul>
+              <li><strong>The continent person (high effort).</strong> Has the wrong desires but uses willpower to do what’s right. Good, but not yet fully virtuous.</li>
+              <li><strong>The temperate person (low effort).</strong> Desires are in harmony with reason. There’s no fight, because the wrong thing isn’t wanted.</li>
+              <li><strong>The takeaway.</strong> Needing heavy restraint means character is still a work in progress — which is normal, and fixable through repetition.</li>
+            </ul>
+          </div>
+        </details>
+
+        <details class="card foundation">
+          <summary>Negative vs. positive duties</summary>
+          <div class="foundation-body">
+            <ul>
+              <li><strong>Negative duties — “not doing wrong.”</strong> Prohibitions (don’t lie, don’t steal). Treated as strict: you comply always, with whatever inhibitory effort it takes.</li>
+              <li><strong>Positive duties — “doing right.”</strong> Prescriptions to do good (be kind, help others). Usually <em>imperfect</em> duties: you choose when, how and how much. You’re praised for doing them more than blamed for resting.</li>
+            </ul>
+            <p>The weekly “Energy focus” question asks which of these your week ran on.</p>
+          </div>
+        </details>
+
+        <details class="card foundation">
+          <summary>Wu-wei — effortless action</summary>
+          <div class="foundation-body">
+            <p>In Daoism, <em>wu-wei</em> (“non-forcing”) holds that constantly fighting impulses is an exhausting way to live. Rather than spending energy on not being bad, align with the natural flow of right action. Practiced harmony dissolves the wrong desire instead of suppressing it — the same idea psychology calls crowding out.</p>
+          </div>
+        </details>
+
+        <details class="card foundation lg:col-span-2">
+          <summary>What psychology says about effort</summary>
+          <div class="foundation-body">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div class="rounded-xl bg-mist-50 border border-mist-200 p-4">
+                <p class="font-medium text-stone-800">Restricting — inhibitory effort</p>
+                <p class="text-xs text-stone-500 mt-0.5">Stopping a force · prefrontal inhibitory control</p>
+                <ul>
+                  <li><strong>Resisting temptation.</strong> The brain has to override an impulse, habit or desire that’s already in motion.</li>
+                  <li><strong>Constant vigilance.</strong> Suppression needs ongoing monitoring, and it feels draining over time.</li>
+                  <li><strong>“Don’t think of an elephant.”</strong> Trying not to think about something keeps it in focus; pushing the thought away costs extra energy.</li>
+                  <li><strong>How it feels.</strong> High friction; often like sacrifice or deprivation.</li>
+                </ul>
+              </div>
+              <div class="rounded-xl bg-sage-50 border border-sage-200 p-4">
+                <p class="font-medium text-stone-800">Doing right — initiation effort</p>
+                <p class="text-xs text-stone-500 mt-0.5">Starting a force · goal-directed action</p>
+                <ul>
+                  <li><strong>Momentum.</strong> Starting takes effort, but once begun, a good action tends to carry itself.</li>
+                  <li><strong>Reward.</strong> Progress toward a goal is reinforcing, which tends to make the work feel lighter.</li>
+                  <li><strong>Crowding out.</strong> Attention spent on doing right leaves less bandwidth for the wrong thing — often bypassing the need for heavy self-control.</li>
+                  <li><strong>How it feels.</strong> Constructive; often rewarding or fulfilling.</li>
+                </ul>
+              </div>
+            </div>
+            <p class="mt-4">The picture: doing right is steering a car forward on a track. Restricting wrong is standing on the brakes to keep it from rolling downhill.</p>
+            <p class="foundation-note">Worth knowing: the popular “ego depletion” idea — that willpower is a tank that runs dry — has not held up well in large replication studies. What is well supported is that suppression feels effortful, habits reduce the need for deliberate control, and people who seem high in self-control mostly avoid temptations rather than winning more fights.</p>
+          </div>
+        </details>
+
+        <details class="card foundation lg:col-span-2" open>
+          <summary>The synthesis — the path this app tracks</summary>
+          <div class="foundation-body">
+            <ol>
+              <li><strong>The Kantian phase (high effort).</strong> Breaking an old pattern starts with deliberate restraint. It’s exhausting, and it’s necessary. Stages 1–2.</li>
+              <li><strong>The Aristotelian phase (low effort).</strong> With repetition, the restraint becomes habit, the habit becomes character, and what once took everything eventually takes very little. Stages 3–4.</li>
+            </ol>
+            <p>Honesty follows the same arc. Telling the truth after a slip is hard, deliberate work at first. Practiced enough, it becomes simply who you are.</p>
+          </div>
+        </details>
+      </div>
+    </section>
 
     <!-- Data controls -->
     <footer class="mt-10 pt-6 border-t border-stone-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-sm text-stone-500">
@@ -207,12 +467,49 @@
     </footer>
   </main>
 
+  <!-- Record a disclosure made after logging -->
+  <dialog id="disclose-dialog" class="dialog" aria-labelledby="dlg-title">
+    <form id="disclose-form" class="p-5 sm:p-6 space-y-4">
+      <div>
+        <h2 id="dlg-title" class="font-serif text-2xl text-stone-800">You told the truth.</h2>
+        <p class="mt-1 text-sm text-stone-600 leading-relaxed">That took courage. Two quick numbers — this is how your brain learns that honesty is safer than it feels.</p>
+      </div>
+
+      <div id="dlg-predicted-fixed" class="hidden rounded-xl bg-stone-50 border border-stone-200 p-3 text-sm text-stone-600"></div>
+      <div id="dlg-predicted-row">
+        <div class="flex items-baseline justify-between gap-3">
+          <label for="dlg-predicted" class="field-label">Looking back, how hard did you expect it to go?</label>
+          <output id="dlg-predicted-out" class="font-serif text-2xl text-stone-800 tabular-nums">5</output>
+        </div>
+        <input type="range" id="dlg-predicted" min="1" max="10" step="1" value="5" class="slider w-full mt-2" data-out="dlg-predicted-out" />
+      </div>
+
+      <div>
+        <div class="flex items-baseline justify-between gap-3">
+          <label for="dlg-actual" class="field-label">How did it actually go?</label>
+          <output id="dlg-actual-out" class="font-serif text-2xl text-stone-800 tabular-nums">5</output>
+        </div>
+        <input type="range" id="dlg-actual" min="1" max="10" step="1" value="5" class="slider w-full mt-2" data-out="dlg-actual-out" />
+        <div class="flex justify-between text-xs text-stone-500 mt-1">
+          <span>1 · We felt closer</span>
+          <span>10 · Serious rupture</span>
+        </div>
+      </div>
+
+      <div class="flex gap-2 justify-end pt-1">
+        <button type="button" id="dlg-cancel" class="btn-ghost">Cancel</button>
+        <button type="submit" class="btn-primary">Save</button>
+      </div>
+    </form>
+  </dialog>
+
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
   <script src="vendor/chart.umd.min.js"></script>
   <script src="js/stages.js"></script>
   <script src="js/storage.js"></script>
   <script src="js/insights.js"></script>
+  <script src="js/script.js"></script>
   <script src="js/charts.js"></script>
   <script src="js/app.js"></script>
 </body>

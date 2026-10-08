@@ -47,7 +47,8 @@
     return stagePart ?? frictionPart;
   }
 
-  function trendSentence(logs, today) {
+  function trendSentence(allLogs, today) {
+    const logs = allLogs.filter((l) => l.kind === 'urge');
     const recent = logsInRange(logs, VT.dates.addDays(today, -13), today).map((l) => l.stage);
     const prior = logsInRange(logs, VT.dates.addDays(today, -27), VT.dates.addDays(today, -14)).map((l) => l.stage);
     if (recent.length < 3 || prior.length < 3) return '';
@@ -62,15 +63,17 @@
   VT.insights = {
     summary(logs, weeklies, today = VT.dates.today()) {
       const last30 = logsInRange(logs, VT.dates.addDays(today, -29), today);
-      const counts = [1, 2, 3, 4].map((s) => last30.filter((l) => l.stage === s).length);
-      const avgStage = avg(last30.map((l) => l.stage));
+      const urges30 = last30.filter((l) => l.kind === 'urge');
+      const counts = [1, 2, 3, 4].map((s) => urges30.filter((l) => l.stage === s).length);
+      counts.push(last30.filter((l) => l.kind === 'slip').length);
+      const avgStage = avg(urges30.map((l) => l.stage));
       const latestFriction = weeklies.length ? weeklies[weeklies.length - 1].friction : null;
       const score = phaseScore(avgStage, latestFriction);
 
       if (score == null) {
         return {
           counts,
-          count30: 0,
+          count30: last30.length,
           avgStage: null,
           latestFriction: null,
           score: null,
@@ -85,7 +88,7 @@
       let message = phase.message;
       const trend = trendSentence(logs, today);
       if (trend) message += ' ' + trend;
-      if (last30.length && last30.length < 4) message += ' A few more logs will sharpen this picture.';
+      if (urges30.length && urges30.length < 4) message += ' A few more logs will sharpen this picture.';
 
       return { counts, count30: last30.length, avgStage, latestFriction, score, phase: phase.name, message };
     },
@@ -142,7 +145,19 @@
         );
 
       // Tie-in with that week's daily logs
-      const weekLogs = logsInRange(logs, entry.weekOf, VT.dates.addDays(entry.weekOf, 6));
+      const weekAll = logsInRange(logs, entry.weekOf, VT.dates.addDays(entry.weekOf, 6));
+      const weekLogs = weekAll.filter((l) => l.kind === 'urge');
+      const weekSlips = weekAll.filter((l) => l.kind === 'slip');
+      if (weekSlips.length) {
+        const told = weekSlips.filter((l) => l.disclosed).length;
+        const who = VT.spouse('your');
+        if (told === weekSlips.length)
+          out.push(`You told ${who} about every slip this week (${told} of ${told}). That is the cycle breaking in real time \u2014 secrecy had nothing to feed on.`);
+        else if (told > 0)
+          out.push(`You shared ${told} of ${weekSlips.length} slips with ${who}. Each one you said out loud is a loop that didn\u2019t close. The others can still be shared \u2014 there\u2019s no deadline on honesty.`);
+        else
+          out.push(`${weekSlips.length === 1 ? 'The slip' : 'The slips'} this week stayed private. That\u2019s the old reflex, not a character flaw. One honest sentence to ${who} \u2014 even days later \u2014 still counts as a full win.`);
+      }
       if (weekLogs.length) {
         const a = avg(weekLogs.map((l) => l.stage));
         const stage = VT.stageById(Math.round(a));
@@ -150,6 +165,92 @@
       }
 
       return out;
+    },
+
+    // Honesty read-out: double victories, streak, and the fear-vs-reality gap.
+    honesty(logs, now = Date.now(), today = VT.dates.today()) {
+      const slips = logs.filter((l) => l.kind === 'slip');
+      const slips30 = logsInRange(slips, VT.dates.addDays(today, -29), today);
+      const shared30 = slips30.filter((l) => l.disclosed).length;
+
+      // Streak: most recent slips shared in a row. A slip whose window is still open hasn't broken anything yet.
+      let streak = 0;
+      for (const l of [...slips].sort((a, b) => b.createdAt - a.createdAt)) {
+        if (l.disclosed) streak++;
+        else if (l.windowEndsAt && now < l.windowEndsAt) continue;
+        else break;
+      }
+
+      const pairs = slips.filter((l) => l.disclosed && l.predicted != null && l.actual != null).sort((a, b) => (a.disclosedAt || a.createdAt) - (b.disclosedAt || b.createdAt));
+      const avgPred = avg(pairs.map((l) => l.predicted));
+      const avgActual = avg(pairs.map((l) => l.actual));
+      const gentler = pairs.filter((l) => l.actual < l.predicted).length;
+      const harder = pairs.filter((l) => l.actual > l.predicted).length;
+      const pending = slips.filter((l) => !l.disclosed && l.windowEndsAt && now < l.windowEndsAt).length;
+      const unshared = slips.filter((l) => !l.disclosed).length - pending;
+      const who = VT.spouse('your');
+
+      let message;
+      if (!slips.length) {
+        message = `No slips logged yet. If one comes, the plan is simple: log it, tell ${who}, and let it stay small. Hidden things grow; spoken things shrink.`;
+      } else if (unshared === 0 && pending) {
+        message = `A slip is in its honesty window right now. You don\u2019t have to carry it \u2014 one sentence to ${who} and it\u2019s a double victory.`;
+      } else if (unshared === 0) {
+        message = `Every slip you’ve logged has been shared. That’s the real victory here — the food moment was one thing, but you refused to let it become a secret. Isolation is how this cycle survives, and you keep cutting off its air.`;
+      } else {
+        message = `${unshared} slip${unshared === 1 ? ' is' : 's are'} still being carried alone. No judgment — hiding was a way of protecting yourself once. You can set ${unshared === 1 ? 'it' : 'them'} down whenever you’re ready; sharing late is still a full win.`;
+      }
+
+      let fear = '';
+      if (pairs.length) {
+        const gap = avgPred - avgActual;
+        fear = `Across ${pairs.length} conversation${pairs.length === 1 ? '' : 's'}, you braced for an average of ${round1(avgPred)}/10. Reality averaged ${round1(avgActual)}/10. `;
+        if (gap > 0.05)
+          fear += `Your fear overestimated the cost of honesty by ${round1(gap)} points, and reality was gentler than predicted ${gentler} of ${pairs.length} times. The secret was always heavier than the truth.`;
+        else if (gap < -0.05)
+          fear += `Some of these were harder than expected (${harder} of ${pairs.length}). That’s real, and it’s worth talking through together. Hard honest conversations still build something secrecy never can.`;
+        else fear += 'Your predictions have been close to reality — and you still chose honesty each time.';
+        if (pairs.length < 3) fear += ' A few more data points will make the pattern undeniable.';
+      }
+
+      return { slips30: slips30.length, shared30, streak, pairs, avgPred, avgActual, gentler, unshared, message, fear };
+    },
+
+    // Copy for the moment banner.
+    moment(state, entry) {
+      const who = VT.spouse('your');
+      if (state === 'running') {
+        return {
+          eyebrow: 'Honesty window',
+          title: 'The pull to hide is strongest right now.',
+          body: `You don’t have to explain everything or have it figured out. One honest sentence to ${who} is enough to break the cycle. The panic you might be feeling is the old reflex — it passes faster once it’s said out loud.`,
+          extra: entry.predicted != null ? `You’re bracing for ${entry.predicted}/10. Let’s see how close that is.` : '',
+        };
+      }
+      if (state === 'closed') {
+        return {
+          eyebrow: 'Honesty window',
+          title: 'The window closed. The door didn’t.',
+          body: `Telling the truth later still counts — an hour from now, tonight, tomorrow. Nothing about this moment is final. Secrecy is what keeps this loop alive, and one sentence to ${who} ends it.`,
+          extra: '',
+        };
+      }
+      // celebrate
+      const inWindow = entry.windowEndsAt == null || (entry.disclosedAt && entry.disclosedAt <= entry.windowEndsAt);
+      let extra = '';
+      if (entry.predicted != null && entry.actual != null) {
+        const d = entry.predicted - entry.actual;
+        extra = `You braced for ${entry.predicted}/10. It was ${entry.actual}/10.` +
+          (d > 0 ? ' Your fear was louder than reality.' : d < 0 ? ' Harder than expected — and you faced it together instead of alone.' : ' You read it right, and you still chose the truth.');
+      }
+      return {
+        eyebrow: 'Double victory',
+        title: inWindow ? 'You told the truth. That’s the bigger win.' : 'Late still counts. You told the truth.',
+        body:
+          'The slip was one moment. Telling the truth is the pattern you’re building — and it’s the one that changes everything. ' +
+          'You didn’t let this become a secret, and that matters more than what happened with food.',
+        extra,
+      };
     },
 
     // Days until the next check-in is due (7 days after the most recent one). Negative = overdue.

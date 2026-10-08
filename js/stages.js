@@ -34,6 +34,18 @@ VT.STAGES = [
 
 VT.stageById = (id) => VT.STAGES.find((s) => s.id === Number(id));
 
+// Slips sit outside the stage scale; warm gray keeps them visible without an alarm colour.
+VT.SLIP = { name: 'Slip', short: 'Slip', color: '#c8bcae' };
+
+VT.HONESTY_WINDOW_MS = 15 * 60 * 1000;
+
+// Spouse wording. Uses the saved name when there is one.
+VT.spouse = (pov = 'your') => {
+  const name = VT.store && VT.store.settings().spouseName;
+  if (name) return name;
+  return { my: 'my spouse', your: 'your spouse', them: 'them' }[pov] || 'your spouse';
+};
+
 VT.COMPASSION_LABELS = {
   0: 'No notable slips',
   1: 'Heavy guilt and shame',
