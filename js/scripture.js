@@ -9,6 +9,7 @@
   };
 
   VT.VERSES = {
+    "Amos 7:7": "Thus he showed me and behold, the Lord stood beside a wall made by a plumb line, with a plumb line in his hand.",
     "1 Corinthians 10:13": "No temptation has taken you except what is common to man. God is faithful, who will not allow you to be tempted above what you are able, but will with the temptation also make the way of escape, that you may be able to endure it.",
     "1 Corinthians 6:12": "“All things are lawful for me,” but not all things are expedient. “All things are lawful for me,” but I will not be brought under the power of anything.",
     "Galatians 5:22-23": "But the fruit of the Spirit is love, joy, peace, patience, kindness, goodness, faith, gentleness, and self-control. Against such things there is no law.",

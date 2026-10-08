@@ -1,4 +1,6 @@
-# Virtue Tracker: From Friction to Freedom
+# Plumb Line: From Friction to Freedom
+
+*"Thus he showed me and behold, the Lord stood beside a wall made by a plumb line, with a plumb line in his hand."* (Amos 7:7, WEB). A plumb line doesn't push the wall; it shows what's true so you can build straight. That's the job of this app: an honest measure, not a verdict.
 
 A private, single-page app for tracking the shift from a **Kantian phase** (willpower, restriction, fighting the pull) to an **Aristotelian phase** (right action as second nature) across several virtues:
 

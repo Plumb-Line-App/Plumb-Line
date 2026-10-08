@@ -1,7 +1,7 @@
 // LocalStorage persistence. One versioned key holds logs, weekly check-ins and settings.
 // Older versions (v1 food-only, v2 with honesty fields) are migrated on read.
 (function () {
-  const KEY = 'virtue-tracker:v1';
+  const KEY = 'virtue-tracker:v1'; // from the app's first name; kept so saved data carries over
   const LIST_MAX = 30; // most good acts / if-then plans kept in settings
   let loadProblem = false; // saved data existed but couldn't be read; a copy was set aside
 
@@ -25,7 +25,7 @@
       if (!raw) return empty();
       return sanitize(JSON.parse(raw));
     } catch (err) {
-      console.warn('Virtue Tracker: could not read saved data', err);
+      console.warn('Plumb Line: could not read saved data', err);
       // Never let the next save silently replace data we couldn't read: keep the original text aside.
       if (raw) {
         loadProblem = true;
@@ -44,7 +44,7 @@
       localStorage.setItem(KEY, JSON.stringify(state));
       return true;
     } catch (err) {
-      console.error('Virtue Tracker: could not save', err);
+      console.error('Plumb Line: could not save', err);
       return false;
     }
   }
@@ -299,11 +299,11 @@
     },
 
     exportJSON: () => JSON.stringify({ ...state, exportedAt: new Date().toISOString() }, null, 2),
-    // Throws (leaving saved data untouched) when the file isn't Virtue Tracker data or can't be saved.
+    // Throws (leaving saved data untouched) when the file isn't Plumb Line data or can't be saved.
     importJSON(text) {
       const data = JSON.parse(text);
       if (!data || typeof data !== 'object' || Array.isArray(data) || !(Array.isArray(data.logs) || Array.isArray(data.weeklies))) {
-        throw new Error('Not Virtue Tracker data');
+        throw new Error('Not Plumb Line data');
       }
       const prev = state;
       state = sanitize(data);

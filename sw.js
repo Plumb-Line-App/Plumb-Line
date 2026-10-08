@@ -1,7 +1,7 @@
 // Offline support. The app's own files are network-first (fresh whenever online, so a new version
 // arrives whole, never as a mix of old and new files) with the cache as the offline fallback.
 // Fonts are cache-first. Bump VERSION when shipping changes so old caches are cleared.
-const VERSION = 'vt-v8';
+const VERSION = 'vt-v9';
 const CORE = [
   './',
   'index.html',
@@ -44,11 +44,15 @@ self.addEventListener('activate', (e) => {
 
 async function networkFirst(req) {
   const cache = await caches.open(VERSION);
-  const network = fetch(req, { cache: 'no-cache' }).then((res) => {
-    if (res && res.ok) cache.put(req, res.clone());
-    return res;
-  });
   const cached = await cache.match(req, { ignoreSearch: true });
+  // An error page (an outage, or the site having moved) never replaces a working cached copy.
+  const network = fetch(req, { cache: 'no-cache' }).then((res) => {
+    if (res && res.ok) {
+      cache.put(req, res.clone());
+      return res;
+    }
+    return cached || res;
+  });
   if (!cached) return network;
   const timeout = new Promise((resolve) => setTimeout(() => resolve(cached), NETWORK_WAIT_MS));
   return Promise.race([network.catch(() => cached), timeout]);

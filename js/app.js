@@ -609,7 +609,7 @@
     const blob = new Blob([VT.store.exportJSON()], { type: 'application/json' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = `virtue-tracker-${VT.dates.today()}.json`;
+    a.download = `plumb-line-${VT.dates.today()}.json`;
     document.body.appendChild(a);
     a.click();
     a.remove();
@@ -639,7 +639,7 @@
         toast(`Imported ${n.logs} logs and ${n.weeklies} check-ins`);
       } catch (err) {
         if (err && err.message === 'Could not save imported data') return toast(VT.ui.SAVE_FAILED);
-        toast('That file couldn’t be read as Virtue Tracker data. Nothing was changed.');
+        toast('That file couldn’t be read as Plumb Line data. Nothing was changed.');
       }
     });
   }
