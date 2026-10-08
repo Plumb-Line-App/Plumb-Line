@@ -1,20 +1,26 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <!-- Plumb Line: a bob hanging still and true, on the app's night blue. Kept inside the maskable safe zone. -->
+  <!-- Plumb Line: a bob hanging still and true. Every colour is an app token (Sanctuary theme):
+       --sky-1 #1b2740 → --bg #121824, --cloud #ece8e1, --marigold #e5a93c, --marigold-ink #fbecd0, --twilight #60a5fa.
+       Artwork stays inside the maskable safe zone. -->
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#1d2840"/>
+      <stop offset="0" stop-color="#1b2740"/>
       <stop offset="1" stop-color="#121824"/>
     </linearGradient>
-    <linearGradient id="bob" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#f3c66b"/>
-      <stop offset="1" stop-color="#d9962a"/>
+    <linearGradient id="shine" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#fbecd0" stop-opacity=".55"/>
+      <stop offset=".5" stop-color="#fbecd0" stop-opacity="0"/>
+      <stop offset="1" stop-color="#121824" stop-opacity=".18"/>
     </linearGradient>
   </defs>
   <rect width="512" height="512" fill="url(#bg)"/>
-  <circle cx="256" cy="250" r="168" fill="#60a5fa" opacity=".07"/>
+  <circle cx="256" cy="256" r="170" fill="#60a5fa" opacity=".08"/>
   <path d="M190 120 H322" stroke="#ece8e1" stroke-width="18" stroke-linecap="round"/>
   <path d="M256 124 V300" stroke="#e5a93c" stroke-width="8" stroke-linecap="round"/>
-  <rect x="236" y="292" width="40" height="22" rx="7" fill="url(#bob)"/>
-  <path d="M202 326 Q256 302 310 326 Q304 368 256 418 Q208 368 202 326 Z" fill="url(#bob)"/>
-  <path d="M226 436 H286" stroke="#60a5fa" stroke-width="8" stroke-linecap="round" opacity=".85"/>
+  <g>
+    <rect x="236" y="292" width="40" height="22" rx="7" fill="#e5a93c"/>
+    <path d="M202 326 Q256 302 310 326 Q304 368 256 418 Q208 368 202 326 Z" fill="#e5a93c"/>
+    <path d="M202 326 Q256 302 310 326 Q304 368 256 418 Q208 368 202 326 Z" fill="url(#shine)"/>
+  </g>
+  <path d="M226 436 H286" stroke="#60a5fa" stroke-width="8" stroke-linecap="round"/>
 </svg>

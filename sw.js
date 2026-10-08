@@ -1,7 +1,7 @@
 // Offline support. The app's own files are network-first (fresh whenever online, so a new version
 // arrives whole, never as a mix of old and new files) with the cache as the offline fallback.
 // Fonts are cache-first. Bump VERSION when shipping changes so old caches are cleared.
-const VERSION = 'vt-v9';
+const VERSION = 'vt-v10';
 const CORE = [
   './',
   'index.html',
