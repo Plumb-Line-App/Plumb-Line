@@ -1,0 +1,26 @@
+webkit 27.2 · https://Plumb-Line-App.github.io/Plumb-Line/
+PASS double tap logs one slip
+PASS no made-up prediction when the slider was never moved
+PASS note typed just before "I told" is kept ("rough afternoon")
+PASS no outcome sentence before answering
+PASS window shows done
+PASS victory panel is back after a reload
+PASS saving without answering asks for the slider
+PASS "Not now" sets it aside
+PASS Recent offers "How did it go?"
+PASS outcome recorded later from Recent
+PASS moved prediction is saved before telling
+PASS closed window still offers Remove it
+PASS waiting slip still listed in Recent
+PASS Save button is tappable, not under the nav (save)
+PASS accent eyebrow differs from plain (rgb(42, 98, 192) vs rgb(107, 98, 88))
+PASS filter hidden and reset with one active virtue
+PASS future week is refused
+PASS over-limit message shows inside the dialog
+PASS malformed hash still boots
+PASS loading #foundations starts at the top
+PASS removing one of two duplicate-id imports removes only one
+PASS imported window clamped to 15 minutes
+PASS unreadable data is kept aside and the person is told
+PASS no page errors 
+ALL PASSED
