@@ -1,5 +1,5 @@
 // Today tab: pick a virtue, meet an urge (stage, need, a better choice), tap a slip straight into the
-// Honest Script, log good acts with "did it help?", and keep if-then plans.
+// Coach tab's Make it right, log good acts with "did it help?", and keep if-then plans.
 (function () {
   const { $, toast } = VT.ui;
 

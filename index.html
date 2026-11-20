@@ -57,7 +57,7 @@
     </a>
     <a href="#script" data-tab-link="script" class="nav-btn" id="nav-script">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/><path d="M8 11h8M8 14.5h5"/></svg>
-      <span>Honest Script</span>
+      <span>Coach</span>
       <span class="nav-badge hidden" id="nav-badge" aria-hidden="true"></span>
     </a>
     <a href="#progress" data-tab-link="progress" class="nav-btn">
@@ -77,10 +77,94 @@
       <header class="page-head">
         <p class="eyebrow" id="today-date"></p>
         <h1 class="h-display page-title" id="greeting">Welcome.</h1>
-        <p class="text-mist mt-1">Whatever happened today, you can bring it here.</p>
+        <p class="text-mist mt-1">One practice today. One honest look back tonight.</p>
       </header>
 
+      <!-- Becoming a husband she is safe with: the pillar, today's practice, this week's question, tonight's review -->
       <div class="mt-5 grid gap-5 lg:grid-cols-5 lg:items-start">
+        <section class="panel ambient p-5 sm:p-6 lg:col-span-3" id="practice-card" aria-labelledby="practice-title">
+          <p class="eyebrow text-marigold" id="pillar-eyebrow"></p>
+          <p class="h-display text-2xl font-semibold mt-1 leading-snug" id="pillar-her"></p>
+          <p class="text-xs text-dim mt-1">The goal, in her words</p>
+          <p id="yesterday-plan" class="note-box text-sm mt-4 hidden"></p>
+          <div class="divider-top mt-4 pt-4">
+            <h2 id="practice-title" class="eyebrow">Today’s practice</h2>
+            <p class="text-lg leading-snug mt-2" id="practice-text"></p>
+            <div class="mt-4 flex flex-wrap items-center gap-x-4 gap-y-3" id="practice-actions">
+              <button type="button" class="btn btn-mint" id="practice-done">I did it</button>
+              <button type="button" class="link text-sm font-medium" id="practice-another">Show me another</button>
+            </div>
+            <div class="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 hidden" id="practice-status" role="status">
+              <p class="text-sm font-semibold text-mint">Done today. That’s how trust is built.</p>
+              <button type="button" class="link-quiet" id="practice-undo">Undo</button>
+            </div>
+          </div>
+          <a href="#script" class="btn btn-ghost w-full mt-5">Hard moment? Open Coach</a>
+        </section>
+
+        <section class="panel verse-panel p-5 sm:p-6 lg:col-span-2" id="ask-card" aria-labelledby="ask-title">
+          <p class="eyebrow" id="ask-title">This week, ask her</p>
+          <p class="h-display text-xl font-semibold mt-2 leading-snug" id="ask-question"></p>
+          <p class="text-xs text-dim mt-2 leading-relaxed" id="ask-rules"></p>
+          <div id="ask-form" class="mt-4">
+            <label for="ask-said" class="field-label">What she said</label>
+            <textarea id="ask-said" rows="3" maxlength="2000" class="field mt-1" placeholder="In her words, as best you remember"></textarea>
+            <button type="button" class="btn btn-ghost btn-sm mt-3" id="ask-save">Save</button>
+          </div>
+          <div id="ask-saved" class="hidden mt-4 note-box">
+            <p class="text-xs text-dim">She said</p>
+            <p class="text-sm mt-1 break-words" id="ask-saved-text"></p>
+            <button type="button" class="link text-sm font-medium mt-2" id="ask-edit">Edit</button>
+          </div>
+        </section>
+
+        <section class="panel p-5 sm:p-6 lg:col-span-5" id="review-card" aria-labelledby="review-title">
+          <h2 class="h-display text-xl font-semibold" id="review-title">Tonight’s review</h2>
+          <p class="text-sm text-mist mt-1">Sixty seconds. An after-action review, not a verdict.</p>
+          <div id="review-form" class="mt-4 grid gap-4 lg:grid-cols-2">
+            <div class="lg:col-span-2">
+              <p class="field-label" id="review-toward-label">Did you turn toward her today?</p>
+              <div class="seg mt-2" id="review-toward" role="group" aria-labelledby="review-toward-label">
+                <button type="button" data-toward="yes" aria-pressed="false">Yes</button>
+                <button type="button" data-toward="mostly" aria-pressed="false">Mostly</button>
+                <button type="button" data-toward="no" aria-pressed="false">Not today</button>
+              </div>
+            </div>
+            <div>
+              <label for="review-well" class="field-label">A moment that went well</label>
+              <textarea id="review-well" rows="2" maxlength="1000" class="field mt-1" placeholder="e.g. Kept my voice level when bedtime fell apart"></textarea>
+            </div>
+            <div>
+              <label for="review-better" class="field-label">One thing you’d do differently</label>
+              <textarea id="review-better" rows="2" maxlength="1000" class="field mt-1" placeholder="e.g. Put the phone down when she started talking"></textarea>
+            </div>
+            <div class="lg:col-span-2">
+              <label for="review-tomorrow" class="field-label">Tomorrow’s one thing</label>
+              <input id="review-tomorrow" maxlength="300" autocomplete="off" class="field mt-1" placeholder="e.g. Greet her first when I get home" />
+            </div>
+            <div class="lg:col-span-2">
+              <button type="button" class="btn btn-mint w-full sm:w-auto" id="review-save">Save tonight’s review</button>
+              <p id="review-error" class="hidden text-sm text-twilight mt-2">Answer at least one of these first.</p>
+            </div>
+          </div>
+          <div id="review-saved" class="hidden mt-4">
+            <p class="text-sm font-semibold text-mint" id="review-saved-head"></p>
+            <dl class="mt-2 space-y-2 text-sm" id="review-saved-list"></dl>
+            <button type="button" class="link text-sm font-medium mt-3" id="review-edit">Edit</button>
+          </div>
+        </section>
+      </div>
+
+      <!-- Myself: the habits tracker (urges, slips, good acts, plans) -->
+      <div class="mt-10 flex items-end justify-between gap-3">
+        <div>
+          <p class="eyebrow">Myself</p>
+          <h2 class="h-display text-xl font-semibold mt-0.5">Habits I’m building</h2>
+          <p class="text-sm text-mist mt-1" id="myself-sub">Self-control, Patience and Follow-through</p>
+        </div>
+        <button type="button" class="btn btn-ghost btn-sm shrink-0" id="myself-toggle" aria-expanded="false" aria-controls="myself">Open</button>
+      </div>
+      <div id="myself" class="mt-5 grid gap-5 lg:grid-cols-5 lg:items-start" hidden>
         <!-- The check-in desk -->
         <section class="panel ambient p-5 sm:p-6 lg:col-span-3" aria-labelledby="desk-title">
           <h2 id="desk-title" class="h-display text-xl font-semibold">What’s happening right now?</h2>
@@ -222,11 +306,21 @@
     <!-- ======================= HONEST SCRIPT ======================= -->
     <main data-panel="script" class="panel-view" hidden>
       <header class="page-head">
-        <p class="eyebrow">The emergency room</p>
-        <h1 class="h-display page-title">Honest Script</h1>
-        <p class="text-mist mt-1">You don’t have to find the words. They’re here.</p>
+        <p class="eyebrow">In the moment</p>
+        <h1 class="h-display page-title">Coach</h1>
+        <p class="text-mist mt-1">What to do when it’s hard, and the words to make it right.</p>
       </header>
 
+      <!-- Playbooks first; while a window or "how did it go?" is open, Make it right moves to the top. -->
+      <div class="coach-body" id="coach-body">
+      <section class="coach-playbooks mt-5" aria-labelledby="playbooks-title">
+        <h2 class="eyebrow" id="playbooks-title">Playbooks</h2>
+        <ul class="mt-3 grid gap-3 lg:grid-cols-2" id="playbooks"></ul>
+      </section>
+
+      <section class="coach-right mt-8" id="make-right" aria-labelledby="make-right-title">
+      <h2 class="h-display text-xl font-semibold" id="make-right-title">Make it right</h2>
+      <p class="text-sm text-mist mt-1">Words for an apology or a hard truth. When something is tempting you to hide, the 15-minute window helps you tell her.</p>
       <!-- DOM order is the phone order (window, the words, the "I told" step, the builder), so screen readers
            and keyboards follow what's on screen. On desktop the same cards sit in two columns. -->
       <div class="mt-5 grid gap-5 lg:grid-cols-2 lg:items-start">
@@ -332,17 +426,60 @@
           </div>
         </section>
       </div>
+      </section>
+      </div>
     </main>
 
     <!-- ======================= PROGRESS ======================= -->
     <main data-panel="progress" class="panel-view" hidden>
-      <header class="page-head flex flex-col sm:flex-row sm:flex-wrap sm:items-end justify-between gap-3">
+      <header class="page-head">
+        <p class="eyebrow">The long view</p>
+        <h1 class="h-display page-title">Progress</h1>
+      </header>
+
+      <!-- She is safe with me -->
+      <div class="mt-5 grid gap-5 lg:grid-cols-3 lg:items-start">
+        <section class="panel p-5 sm:p-6 lg:col-span-3" id="pillar-progress" aria-labelledby="pp-title">
+          <p class="eyebrow">She is safe with me</p>
+          <h2 class="h-display text-2xl font-semibold mt-1" id="pp-title"></h2>
+          <p class="text-mist mt-2 leading-relaxed max-w-3xl" id="pp-why"></p>
+          <ol class="pillar-steps mt-5" id="pp-steps"></ol>
+          <dl class="mt-5 grid grid-cols-3 gap-3">
+            <div class="stat"><dt class="eyebrow">Practices</dt><dd class="text-mint" id="pp-practices">0</dd></div>
+            <div class="stat"><dt class="eyebrow">Reviews</dt><dd class="text-twilight" id="pp-reviews">0</dd></div>
+            <div class="stat"><dt class="eyebrow">Turned toward</dt><dd class="text-marigold" id="pp-toward">—</dd></div>
+          </dl>
+          <p class="text-xs text-dim mt-2">Last 30 days. “Turned toward” counts the evenings you answered Yes.</p>
+          <p class="text-sm text-mist mt-5 leading-relaxed" id="pp-advice"></p>
+          <div class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
+            <button type="button" class="btn btn-ghost btn-sm" id="pp-next"></button>
+            <button type="button" class="link-quiet" id="pp-back"></button>
+          </div>
+        </section>
+
+        <section class="panel p-5 sm:p-6 lg:col-span-2" aria-labelledby="answers-title">
+          <h2 class="h-display text-xl font-semibold" id="answers-title">What she told you</h2>
+          <p class="text-sm text-mist mt-1">Her answers to the weekly question. Her read is the real measure.</p>
+          <ul class="mt-3 recent-list" id="answers-list"></ul>
+          <p class="text-sm text-mist mt-3" id="answers-empty">Nothing yet. This week’s question is on Today.</p>
+        </section>
+
+        <section class="panel p-5 sm:p-6" aria-labelledby="moments-title">
+          <h2 class="h-display text-xl font-semibold" id="moments-title">Moments that went well</h2>
+          <p class="text-sm text-mist mt-1">From your evening reviews. Reread these on hard days.</p>
+          <ul class="mt-3 recent-list" id="moments-list"></ul>
+          <p class="text-sm text-mist mt-3" id="moments-empty">Tonight’s review will start this list.</p>
+        </section>
+      </div>
+
+      <!-- Myself -->
+      <div class="mt-10 flex flex-col sm:flex-row sm:flex-wrap sm:items-end justify-between gap-3">
         <div>
-          <p class="eyebrow">Last 30 days</p>
-          <h1 class="h-display page-title">Progress</h1>
+          <p class="eyebrow">Myself · last 30 days</p>
+          <h2 class="h-display text-xl font-semibold mt-0.5">Habits I’m building</h2>
         </div>
         <div class="seg" id="journey-filter" role="group" aria-label="Show"></div>
-      </header>
+      </div>
 
       <div class="mt-5 grid gap-5 lg:grid-cols-3 lg:items-start">
         <section class="panel p-5 sm:p-6 lg:col-span-3" id="progress-card" aria-live="polite">
@@ -511,8 +648,26 @@
       <header class="page-head">
         <p class="eyebrow">Anchors</p>
         <h1 class="h-display page-title">Foundations</h1>
-        <p class="text-mist mt-1">Why the fight is supposed to get easier.</p>
+        <p class="text-mist mt-1">What a gentleman is, and why it gets easier.</p>
       </header>
+
+      <section class="panel p-5 sm:p-6 mt-5" aria-labelledby="gentleman-title">
+        <p class="eyebrow">The gentleman</p>
+        <h2 class="h-display text-2xl font-semibold mt-1" id="gentleman-title">Strength under control</h2>
+        <div class="mt-3 space-y-3 leading-relaxed">
+          <p>A gentleman isn’t a soft man. He’s a strong man whose strength makes the people around him safer. The New Testament word often translated “gentle” (<em>praus</em>) was used for strength brought under control, not for weakness.</p>
+          <p>With his wife, that looks like steadiness she can predict, attention she can count on, honesty with nothing behind the curtain, and honor she can feel. With his children, it looks the same, at their height. They learn what a husband is by watching how he treats their mother.</p>
+        </div>
+        <figure data-verse="1 Corinthians 16:13-14" class="verse-box mt-5"></figure>
+        <figure data-verse="1 Peter 3:7" class="verse-box mt-3"></figure>
+      </section>
+
+      <section class="panel p-5 sm:p-6 mt-5" aria-labelledby="pillars-title">
+        <p class="eyebrow">She is safe with me</p>
+        <h2 class="h-display text-2xl font-semibold mt-1" id="pillars-title">The five pillars, in order</h2>
+        <p class="mt-2 leading-relaxed text-mist">Remove the threat first, then add the warmth. Pursuit built on an unsteady floor feels like performance; built on a steady one, it feels like love. Move to the next pillar when the practice feels more natural than forced.</p>
+        <ol class="mt-4 space-y-3" id="pillars-explained"></ol>
+      </section>
 
       <section class="panel verse-panel p-5 sm:p-6 mt-5">
         <p class="eyebrow">Why “Plumb Line”</p>
@@ -522,6 +677,7 @@
 
       <section class="panel p-5 sm:p-6 mt-5">
         <p class="eyebrow">Who I’m becoming</p>
+        <p class="sr-only">Anchor statements for each area of life</p>
         <ul class="mt-3 grid gap-3 sm:grid-cols-2" id="anchors"></ul>
       </section>
 
@@ -821,6 +977,7 @@
 
   <script src="js/stages.js"></script>
   <script src="js/virtues.js"></script>
+  <script src="js/coach.js"></script>
   <script src="js/scripture.js"></script>
   <script src="js/storage.js"></script>
   <script src="js/insights.js"></script>
@@ -829,6 +986,7 @@
   <script src="js/ui.js"></script>
   <script src="js/today.js"></script>
   <script src="js/honesty.js"></script>
+  <script src="js/husband.js"></script>
   <script src="js/app.js"></script>
   <script>
     if ('serviceWorker' in navigator && location.protocol !== 'file:') {

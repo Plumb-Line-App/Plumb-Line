@@ -5,7 +5,7 @@
   const RECENT_LIMIT = 10;
   const TABS = ['today', 'script', 'progress', 'foundations'];
   // Hashes from the earlier five-tab layout still land somewhere sensible.
-  const LEGACY = { honesty: 'script', journey: 'progress', weekly: 'progress', why: 'foundations' };
+  const LEGACY = { honesty: 'script', coach: 'script', journey: 'progress', weekly: 'progress', why: 'foundations' };
   const THEME_COLORS = { light: '#f5f1ea', dark: '#121824' };
 
   let tab = null;
@@ -125,6 +125,7 @@
 
     VT.today.render(ctx);
     VT.honesty.render(ctx);
+    VT.husband.render(ctx);
     renderProgress(ctx);
     renderSettings(s);
     renderAnchors(s);
@@ -619,6 +620,7 @@
   function afterDataReset() {
     VT.today.forget();
     VT.honesty.forget();
+    VT.husband.forget();
     VT.today.resetUrge();
     resetWeeklyForm();
     openWeekly(false);
@@ -645,7 +647,7 @@
   }
 
   function onReset() {
-    if (!confirm('Permanently clear all logs and check-ins from this browser? Your virtues, good acts and plans stay. Export first if you want a backup.')) return;
+    if (!confirm('Permanently clear all logs, check-ins, practices, evening reviews and her answers from this browser? Your settings, good acts and plans stay. Export first if you want a backup.')) return;
     if (!VT.store.clear()) return toast(VT.ui.SAVE_FAILED);
     afterDataReset();
     render();
@@ -665,6 +667,8 @@
       li.lastChild.textContent = text;
       list.appendChild(li);
     };
+    add('Husband', 'var(--marigold)', 'A man she is safe with: steady, attentive, honest, honoring.');
+    add('Father', 'var(--mint)', 'The same man, at their height. They learn by watching.');
     s.activeVirtues.forEach((id) => {
       const v = VT.virtueById(id);
       add(v.name, v.color, v.becoming);
@@ -735,6 +739,7 @@
 
     VT.today.init();
     VT.honesty.init();
+    VT.husband.init();
     resetWeeklyForm();
 
     document.addEventListener('input', (e) => {

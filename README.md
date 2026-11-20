@@ -1,8 +1,12 @@
-# Plumb Line: From Friction to Freedom
+# Plumb Line
 
 *"Thus he showed me and behold, the Lord stood beside a wall made by a plumb line, with a plumb line in his hand."* (Amos 7:7, WEB). A plumb line doesn't push the wall; it shows what's true so you can build straight. That's the job of this app: an honest measure, not a verdict.
 
-A private, single-page app for tracking the shift from a **Kantian phase** (willpower, restriction, fighting the pull) to an **Aristotelian phase** (right action as second nature) across several virtues:
+A private coaching app for becoming a husband his wife is safe with, and later teaching that to his son. It works through five pillars, in order: **Steady**, **Turn toward**, **Understand before fixing**, **Nothing hidden**, **Honor and pursue**. Remove the threat first, then add the warmth.
+
+Every day: one practice from the current pillar, Coach playbooks for hard moments, and a 60-second evening review (an after-action review, not a verdict). Every week: one question to ask her, and a note of what she said. Her read is the real measure.
+
+Underneath, a habits tracker (**Myself**) follows the shift from a **Kantian phase** (willpower, fighting the pull) to an **Aristotelian phase** (right action as second nature) for:
 
 - **Self-control** · with food (classically, temperance)
 - **Patience** · with the kids
@@ -25,10 +29,12 @@ When shipping changes, bump `VERSION` in `sw.js` so installed copies pick them u
 
 Four tabs (a floating bar at the bottom on phones, at the top on desktop). Tabs are hash routes (`#today`, `#script`, `#progress`, `#foundations`) so the back button works; older links (`#honesty`, `#journey`, `#weekly`, `#why`) still land in the right place.
 
-- **Today** — pick a virtue, then two doors: *An Urge* (stage, the need underneath, a better choice) or *A Slip*. Below: where each virtue sits on the path, one-tap good acts, up next, if-then plans, and a verse for today.
-- **Honest Script** — the 15-minute window (a ring that counts down, with a breathing cue), the message builder, your prediction before telling, and the double victory after.
-- **Progress** — the phase read-out, Fear vs. Reality, crowding out, the weekly check-in, friction over time, recent entries, what actually helps, and settings & data.
-- **Foundations** — who you're becoming, and the reading sections (Kant, Aristotle, Aquinas, the capital vices, effort psychology…).
+- **Today** — the current pillar (the goal in her words), today's practice, this week's question to ask her, and tonight's review. Below, **Myself** opens the habits tracker: two doors (*An Urge*, *A Slip*), where each habit sits on the path, good acts, plans, and a verse for today.
+- **Coach** (`#script`) — eight playbooks for hard moments (she's upset with me, I'm about to snap, I snapped at her, she's overwhelmed…), then **Make it right**: apology and hard-truth wording, and the 15-minute honesty window with its prediction and "how did it go?".
+- **Progress** — the five pillars (move on when the practice feels more natural than forced), practices, reviews, evenings you turned toward her, her answers, and the moments that went well; then the habits read-outs, Fear vs. Reality, the weekly check-in, and settings & data.
+- **Foundations** — the gentleman (strength under control), the five pillars explained, who you're becoming, and the reading sections (Kant, Aristotle, Aquinas, the capital vices, effort psychology…).
+
+Coaching content lives in `js/coach.js` (pillars, practices, weekly questions, playbooks), so it can be rewritten without touching the app.
 
 ## Look
 
@@ -61,7 +67,9 @@ js/script.js           repair script templates (spouse + kids)
 js/charts.js           hand-drawn SVG charts (theme-aware)
 js/ui.js               shared DOM helpers
 js/today.js            Today tab controller
-js/honesty.js          Honest Script tab: window, builder, prediction, double victory
+js/coach.js            coaching content: pillars, daily practices, weekly questions, playbooks
+js/husband.js          coaching UI: today's practice, the weekly question, the evening review, playbooks, pillar progress
+js/honesty.js          Coach → Make it right: window, builder, prediction, double victory
 js/app.js              app controller (tabs, theme, Progress, weekly check-in, settings, Foundations)
 tests/safari/          iPhone 17 checks: WebKit suite + real Mobile Safari (see .github/workflows/safari-qa.yml)
 ```

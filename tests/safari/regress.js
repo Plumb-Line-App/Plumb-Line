@@ -13,7 +13,7 @@ const ok = (c, m) => { if (!c) fails++; console.log((c ? 'PASS ' : 'FAIL ') + m)
   const errs = [];
   p.on('pageerror', (e) => errs.push(e.message));
   p.on('dialog', (d) => d.accept());
-  const fresh = async (hash = '#today') => { await p.goto(base + hash); await p.evaluate(() => localStorage.clear()); await p.goto('about:blank'); await p.goto(base + hash); await p.waitForTimeout(500); };
+  const fresh = async (hash = '#today') => { await p.goto(base + hash); await p.evaluate(() => { localStorage.clear(); localStorage.setItem('plumb-line:myself-open', '1'); }); await p.goto('about:blank'); await p.goto(base + hash); await p.waitForTimeout(500); };
   const slips = () => p.evaluate(() => VT.store.logs().filter((l) => l.kind === 'slip'));
 
   // Double tap on A Slip logs one slip

@@ -15,8 +15,11 @@
     activeVirtues: [...VT.VIRTUE_IDS],
     lastVirtue: VT.VIRTUE_IDS[0],
     theme: 'auto', // 'auto' follows the phone; 'light' / 'dark' override it
+    pillar: 1, // the coaching pillar being practised (1 Steady … 5 Honor and pursue)
+    pillarSince: '', // date the current pillar began
   });
-  const empty = () => ({ version: 3, logs: [], weeklies: [], settings: defaultSettings() });
+  // `journal` holds the coaching side: practices done, evening reviews, and what she said to the weekly question.
+  const empty = () => ({ version: 3, logs: [], weeklies: [], journal: [], settings: defaultSettings() });
 
   function load() {
     let raw = null;
@@ -113,6 +116,27 @@
     };
   }
 
+  const JOURNAL_TYPES = ['practice', 'review', 'answer'];
+  function sanitizeEntry(e) {
+    const type = e.type;
+    const out = { id: String(e.id || VT.uid()), date: e.date, type, createdAt: num(e.createdAt) || Date.now(), pillar: inRange(e.pillar, 1, 5) };
+    if (type === 'practice') {
+      out.practiceId = str(e.practiceId, 40);
+      out.text = str(e.text, 300);
+    } else if (type === 'review') {
+      out.toward = ['yes', 'mostly', 'no'].includes(e.toward) ? e.toward : null;
+      out.well = str(e.well, 1000);
+      out.better = str(e.better, 1000);
+      out.tomorrow = str(e.tomorrow, 300);
+    } else {
+      out.questionId = str(e.questionId, 40);
+      out.question = str(e.question, 300);
+      out.said = str(e.said, 2000);
+    }
+    return out;
+  }
+  const validEntry = (e) => !!e && isDateKey(e.date) && JOURNAL_TYPES.includes(e.type);
+
   function validLog(l) {
     if (!l || !isDateKey(l.date)) return false;
     if (l.kind === 'slip') return true;
@@ -176,6 +200,8 @@
     out.activeVirtues = active.length ? active : [...VT.VIRTUE_IDS];
     out.lastVirtue = out.activeVirtues.includes(s.lastVirtue) ? s.lastVirtue : out.activeVirtues[0];
     out.theme = ['light', 'dark'].includes(s.theme) ? s.theme : 'auto';
+    out.pillar = inRange(s.pillar, 1, 5) || 1;
+    out.pillarSince = isDateKey(s.pillarSince) ? s.pillarSince : '';
     return out;
   }
 
@@ -193,6 +219,15 @@
       });
     }
     if (Array.isArray(data.weeklies)) out.weeklies = data.weeklies.filter(validWeekly).map(sanitizeWeekly);
+    if (Array.isArray(data.journal)) {
+      const seen = new Set();
+      out.journal = data.journal.filter(validEntry).map((e) => {
+        const entry = sanitizeEntry(e);
+        if (seen.has(entry.id)) entry.id = VT.uid() + seen.size;
+        seen.add(entry.id);
+        return entry;
+      });
+    }
     out.settings = sanitizeSettings(data.settings);
     return out;
   }
@@ -270,6 +305,33 @@
       return false;
     },
 
+    // Coaching journal: { date, type: 'practice' | 'review' | 'answer', pillar, ... }
+    journal: () => state.journal.map((e) => ({ ...e })).sort(byLogOrder),
+    addEntry(input) {
+      if (!validEntry(input)) return null;
+      const entry = sanitizeEntry({ ...input, id: VT.uid(), createdAt: Date.now() });
+      state.journal.push(entry);
+      if (save()) return { ...entry };
+      state.journal.pop();
+      return null;
+    },
+    updateEntry(id, patch) {
+      const i = state.journal.findIndex((e) => e.id === id);
+      if (i < 0) return null;
+      const prev = state.journal[i];
+      state.journal[i] = sanitizeEntry({ ...prev, ...patch, id: prev.id, type: prev.type, date: prev.date, createdAt: prev.createdAt });
+      if (save()) return { ...state.journal[i] };
+      state.journal[i] = prev;
+      return null;
+    },
+    deleteEntry(id) {
+      const prev = state.journal;
+      state.journal = state.journal.filter((e) => e.id !== id);
+      if (save()) return true;
+      state.journal = prev;
+      return false;
+    },
+
     addWeekly({ weekOf, frictions, energy, compassion, note }) {
       const entry = sanitizeWeekly({ id: VT.uid(), weekOf, frictions, energy, compassion, note: (note || '').trim(), createdAt: Date.now() });
       if (!Object.keys(entry.frictions).length) return null;
@@ -302,7 +364,7 @@
     // Throws (leaving saved data untouched) when the file isn't Plumb Line data or can't be saved.
     importJSON(text) {
       const data = JSON.parse(text);
-      if (!data || typeof data !== 'object' || Array.isArray(data) || !(Array.isArray(data.logs) || Array.isArray(data.weeklies))) {
+      if (!data || typeof data !== 'object' || Array.isArray(data) || !(Array.isArray(data.logs) || Array.isArray(data.weeklies) || Array.isArray(data.journal))) {
         throw new Error('Not Plumb Line data');
       }
       const prev = state;
@@ -311,7 +373,7 @@
         state = prev;
         throw new Error('Could not save imported data');
       }
-      return { logs: state.logs.length, weeklies: state.weeklies.length };
+      return { logs: state.logs.length + state.journal.length, weeklies: state.weeklies.length };
     },
     clear() {
       const prev = state;

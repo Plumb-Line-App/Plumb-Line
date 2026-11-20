@@ -1,4 +1,4 @@
-// Honest Script tab: the 15-minute window after a slip, the message builder, the prediction before
+// Coach tab, Make it right: the 15-minute window after a slip, the message builder, the prediction before
 // telling, and the double victory after. A slip tapped on Today lands here with the window already running.
 (function () {
   const { $, toast } = VT.ui;
@@ -174,7 +174,7 @@
 
   // ---------- The window ----------
   function setNavLabel(text) {
-    $('nav-script').setAttribute('aria-label', text ? `Honest Script, ${text}` : 'Honest Script');
+    $('nav-script').setAttribute('aria-label', text ? `Coach, ${text}` : 'Coach');
   }
 
   function renderWindow(slip, victory) {

@@ -314,7 +314,7 @@ input[type="date"].field::-webkit-date-and-time-value { text-align: left; }
 .chip-open { color: var(--mist); }
 
 /* ================= Scripture ================= */
-.verse { margin: 0; }
+/* Figures are reset by Tailwind's preflight; spacing utilities (mt-3, mt-4) set the gap above a verse. */
 .verse-text { font-family: 'Playfair Display', Georgia, serif; font-style: italic; font-size: 1.1rem; line-height: 1.6; color: var(--text-strong); margin: 0; }
 .verse-ref { margin-top: .45rem; font-size: .75rem; color: var(--dim); }
 .verse-ref a { color: var(--twilight); font-weight: 500; }
@@ -462,3 +462,41 @@ input[type="date"].field::-webkit-date-and-time-value { text-align: left; }
 #victory-title:focus { outline: none; }
 /* Virtue names differ in length ("Follow-through"); size each option to its label rather than equal thirds. */
 #virtue-seg { grid-auto-columns: auto; }
+
+/* ================= Coaching ================= */
+/* Coach: playbooks first, unless a window or "how did it go?" is open — then Make it right leads. */
+.coach-body { display: flex; flex-direction: column; }
+.coach-body[data-active="1"] .coach-right { order: -1; margin-top: 1.25rem; }
+.coach-body[data-active="1"] .coach-playbooks { margin-top: 2.5rem; }
+
+.playbook { border: 1px solid var(--line); border-radius: 1.25rem; background: var(--panel); box-shadow: var(--shadow); }
+.playbook > summary { cursor: pointer; list-style: none; display: flex; align-items: center; gap: .75rem; padding: 1rem 1.1rem; font-weight: 600; -webkit-tap-highlight-color: transparent; }
+.playbook > summary::-webkit-details-marker { display: none; }
+.playbook > summary::after { content: "+"; margin-left: auto; color: var(--dim); font-weight: 400; }
+.playbook[open] > summary::after { content: "\2013"; }
+.playbook > summary:focus-visible { outline: 2px solid var(--twilight); outline-offset: -2px; border-radius: 1.25rem; }
+.playbook-icon { width: 2rem; height: 2rem; border-radius: .7rem; display: grid; place-items: center; flex: none; background: var(--twilight-tint); color: var(--twilight); font-family: 'Playfair Display', Georgia, serif; font-size: .95rem; }
+.playbook-body { padding: 0 1.1rem 1.1rem; }
+.playbook-body > * + * { margin-top: .85rem; }
+.playbook-steps { counter-reset: step; list-style: none; padding: 0; }
+.playbook-steps li { counter-increment: step; position: relative; padding-left: 2rem; line-height: 1.5; }
+.playbook-steps li + li { margin-top: .6rem; }
+.playbook-steps li::before { content: counter(step); position: absolute; left: 0; top: .05rem; width: 1.4rem; height: 1.4rem; border-radius: 9999px; display: grid; place-items: center; font-size: .75rem; font-weight: 600; background: var(--mint-tint); color: var(--mint); }
+.playbook-say { border-left: 3px solid var(--marigold); padding: .2rem 0 .2rem .85rem; font-family: 'Playfair Display', Georgia, serif; font-style: italic; font-size: 1.05rem; line-height: 1.5; color: var(--text-strong); }
+.playbook-avoid { font-size: .875rem; color: var(--mist); }
+.playbook-avoid b { color: var(--cloud); font-weight: 600; }
+
+/* Progress: the five pillars as a path */
+.pillar-steps { list-style: none; padding: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: .4rem; }
+.pillar-step { border-radius: .9rem; padding: .6rem .5rem; text-align: center; background: var(--fill-1); border: 1px solid var(--line); min-width: 0; }
+.pillar-step .n { display: block; font-family: 'Playfair Display', Georgia, serif; font-size: 1.15rem; font-weight: 600; color: var(--dim); line-height: 1.1; }
+.pillar-step .name { display: block; font-size: .6875rem; line-height: 1.25; color: var(--mist); margin-top: .2rem; overflow-wrap: anywhere; }
+.pillar-step .count { display: block; font-size: .625rem; color: var(--dim); margin-top: .25rem; }
+.pillar-step.done { background: var(--mint-tint); border-color: color-mix(in srgb, var(--mint) 30%, transparent); }
+.pillar-step.done .n { color: var(--mint); }
+.pillar-step.current { background: var(--marigold-tint); border-color: var(--marigold); box-shadow: inset 0 0 0 1px var(--marigold); }
+.pillar-step.current .n, .pillar-step.current .name { color: var(--marigold-ink); }
+
+/* Foundations: pillars explained */
+.pillar-item { border-radius: 1.1rem; padding: .9rem 1rem; background: var(--panel-2); border: 1px solid var(--line); }
+.pillar-item .her { font-family: 'Playfair Display', Georgia, serif; font-style: italic; font-size: 1.05rem; margin-top: .2rem; }

@@ -9,6 +9,16 @@
   };
 
   VT.VERSES = {
+    "Colossians 3:19": "Husbands, love your wives, and don’t be bitter against them.",
+    "1 Peter 3:7": "You husbands, in the same way, live with your wives according to knowledge, giving honor to the woman, as to the weaker vessel, as also being joint heirs of the grace of life, that your prayers may not be hindered.",
+    "Ephesians 4:25": "Therefore putting away falsehood, speak truth each one with his neighbor. For we are members of one another.",
+    "Ephesians 5:25": "Husbands, love your wives, even as Christ also loved the assembly, and gave himself up for it;",
+    "Ephesians 5:28-29": "Even so husbands also ought to love their own wives as their own bodies. He who loves his own wife loves himself. For no man ever hated his own flesh; but nourishes and cherishes it, even as the Lord also does the assembly;",
+    "Proverbs 31:28-29": "Her children rise up and call her blessed. Her husband also praises her: “Many women do noble things, but you excel them all.”",
+    "1 Corinthians 16:13-14": "Watch! Stand firm in the faith! Be courageous! Be strong! Let all that you do be done in love.",
+    "Galatians 6:2": "Bear one another’s burdens, and so fulfill the law of Christ.",
+    "Proverbs 20:5": "Counsel in the heart of man is like deep water, but a man of understanding will draw it out.",
+    "Proverbs 18:13": "He who answers before he hears, that is folly and shame to him.",
     "Philippians 4:11": "Not that I speak because of lack, for I have learned in whatever state I am, to be content in it.",
     "Amos 7:7": "Thus he showed me and behold, the Lord stood beside a wall made by a plumb line, with a plumb line in his hand.",
     "1 Corinthians 10:13": "No temptation has taken you except what is common to man. God is faithful, who will not allow you to be tempted above what you are able, but will with the temptation also make the way of escape, that you may be able to endure it.",

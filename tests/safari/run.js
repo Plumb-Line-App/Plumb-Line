@@ -55,6 +55,38 @@ async function suite(browser, scheme) {
   await shot('01-today-empty');
   await overflow('today');
 
+  // Coaching: pillar, today's practice, the weekly question, tonight's review
+  ok((await p.textContent('#pillar-eyebrow')).startsWith('Pillar 1 of 5 · Steady'), `[${scheme}] starts on pillar 1, Steady`);
+  const firstPractice = await p.textContent('#practice-text');
+  await tap('#practice-another');
+  ok((await p.textContent('#practice-text')) !== firstPractice, `[${scheme}] "Show me another" changes the practice`);
+  await tap('#practice-done');
+  ok(await p.locator('#practice-status').isVisible(), `[${scheme}] practice marked done`);
+  await p.fill('#ask-said', 'When you sigh it feels like I did something wrong.');
+  await tap('#ask-save');
+  ok(await p.locator('#ask-saved').isVisible(), `[${scheme}] her answer saved`);
+  await tap('#review-toward [data-toward="yes"]');
+  await p.fill('#review-well', 'Kept my voice level at bedtime.');
+  await tap('#review-save');
+  ok(await p.locator('#review-saved').isVisible(), `[${scheme}] evening review saved`);
+  await shot('01b-today-coaching', true);
+  await go('#script');
+  ok((await p.locator('#playbooks details.playbook').count()) === 8, `[${scheme}] 8 Coach playbooks`);
+  await p.locator('details.playbook', { hasText: 'I snapped at her' }).locator('summary').click();
+  await tap('[data-playbook-done="snapped"]');
+  ok((await p.evaluate(() => VT.store.journal().filter((e) => e.practiceId === 'playbook:snapped').length)) === 1, `[${scheme}] apology logged without a timer`);
+  await shot('01c-coach');
+  await go('#progress');
+  ok((await p.textContent('#pp-practices')) === '2' && (await p.textContent('#pp-toward')) === '1/1', `[${scheme}] Progress counts practices and turned-toward evenings`);
+  ok((await p.locator('#answers-list li').count()) === 1 && (await p.locator('#moments-list li').count()) === 1, `[${scheme}] her answer and the good moment show in Progress`);
+  await tap('#pp-next');
+  ok((await p.evaluate(() => VT.store.setting('pillar'))) === 2, `[${scheme}] moving to pillar 2`);
+  await shot('01d-progress-coaching');
+  await go('#today');
+  ok((await p.textContent('#pillar-eyebrow')).startsWith('Pillar 2 of 5 · Turn toward'), `[${scheme}] Today follows the new pillar`);
+  await tap('#myself-toggle');
+  ok(await p.locator('#door-urge').isVisible(), `[${scheme}] Myself opens the habits tracker`);
+
   // Good act + urge
   await tap('#act-chips [data-act]');
   ok(await p.locator('#act-followup').isVisible(), `[${scheme}] act follow-up opens`);
